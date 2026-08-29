@@ -1,0 +1,13 @@
+# ASTRA UAV — Complete 9-Layer Implementation Status
+
+| Layer | System Name | Completion | Core Files & Classes | Key Functionality Verified |
+|---|---|---|---|---|
+| **Layer 1** | Core Architecture & Contracts | 100% | `AstraEvents.cs`, `AstraServices.cs`, `GeoMath.cs`, `GeoReference.cs`, `EventLog.cs`, `SimClock.cs` | Event bus dispatch, service registry, WGS84 geodesic coordinate conversions, structured logging. |
+| **Layer 2** | Digital Twin & Flight Dynamics | 100% | `AirframeBuilder.cs`, `QuadcopterPhysics.cs`, `PidController.cs`, `FlightControlSystem.cs`, `MotorUnit.cs`, `BatterySystem.cs`, `ManualFlightInput.cs` | 4-loop cascaded PID (Rate $\rightarrow$ Attitude $\rightarrow$ Velocity $\rightarrow$ Position), physics-based thrust/drag, arming validation. |
+| **Layer 3** | Sensors & State Estimation | 100% | `SimulatedSensorSuite.cs`, `GnssBaroLocalizationProvider.cs`, `VisualInertialLocalizationProvider.cs`, `TelemetryProvider.cs` | Physical IMU specific forces, Baro pressure altitude, GNSS lock/jamming toggle, VIO drift dynamics, unified telemetry. |
+| **Layer 4** | Perception & Threat Analysis | 100% | `RaycastObstacleDetector.cs`, `CollisionPredictor.cs`, `ThreatAnalyzer.cs`, `OccupancyGrid.cs`, `PerceptionManager.cs` | Multi-beam 3D LiDAR scanning, CPA/TTC relative velocity collision prediction, 3D voxel grid with $8\,\text{m}$ margin inflation. |
+| **Layer 5** | Navigation & Path Planning | 100% | `MargasoochiDStarLite.cs`, `AStarPlanner.cs`, `DijkstraPlanner.cs`, `TrajectorySmoother.cs`, `AvoidanceController.cs` | Margasoochi D* Lite incremental search repair, Catmull-Rom spline trajectory smoothing, multi-candidate obstacle avoidance. |
+| **Layer 6** | Autonomy & Mission Executive | 100% | `MissionManager.cs`, `AutonomyController.cs`, `FailsafeManager.cs` | Continuous 7-stage loop (Sense-Perceive-Localize-Plan-Decide-Act-Reassess), waypoint sequencing, low-battery RTH/Land failsafes. |
+| **Layer 7** | Dual Synchronized Map Views | 100% | `OfflineMapProvider.cs`, `CesiumMapProvider.cs`, `MapManager.cs`, `PerceptionViewController.cs` | Mode A 3D city geospatial view, Mode B monochrome machine-perception overlay, runtime `F9` map backend fallback. |
+| **Layer 8** | GCS Dashboard & Engineering View | 100% | `GcsManager.cs`, `CameraController.cs`, `EngineeringViewController.cs` | Interactive GCS HUD, real-time AI decision panel, 6-rig camera director, digital twin exploded & X-ray views (`F6`). |
+| **Layer 9** | Presentation, Benchmarks & Tools | 100% | `PresentationController.cs`, `BenchmarkRunner.cs`, `SceneGenerator.cs` | Automated 18-step presentation sequence (`F8`), Margasoochi benchmark suite, Unity Editor procedural scene builder. |
