@@ -68,6 +68,12 @@ namespace Astra.UI
             _perceptionView = FindFirstObjectByType<PerceptionViewController>();
             _engView = FindFirstObjectByType<EngineeringViewController>();
             _cameraCtrl = FindFirstObjectByType<CameraController>();
+
+            if (FindFirstObjectByType<InteractiveTargetPicker>() == null)
+            {
+                GameObject pickerGo = new GameObject("Interactive_Target_Picker");
+                pickerGo.AddComponent<InteractiveTargetPicker>();
+            }
         }
 
         private void Update()
@@ -295,42 +301,34 @@ namespace Astra.UI
             GUI.Box(new Rect(x, y, w, h), "MISSION PLANNER & TARGET SELECTION", _boxStyle);
             GUILayout.BeginArea(new Rect(x + 10, y + 25, w - 20, h - 35));
 
-            GUILayout.Label($"Active Mission: {(_mission?.Current != null ? _mission.Current.MissionName : "No Mission")}", _subHeaderStyle);
-            GUILayout.Label($"Phase: {(_mission != null ? _mission.Phase.ToString() : "None")} | WP {(_mission != null ? (_mission.ActiveWaypointIndex + 1) : 0)}/{(_mission?.Current != null ? _mission.Current.WaypointCount : 0)}", _labelStyle);
+            InteractiveTargetPicker picker = FindFirstObjectByType<InteractiveTargetPicker>();
+            Vector3 uavPos = _fc != null ? _fc.transform.position : Vector3.zero;
+            Vector3 tgtPos = picker != null ? picker.SelectedTargetPosition : new Vector3(60, 0, 90);
+            float distToTgt = Vector3.Distance(uavPos, tgtPos);
+
+            GUILayout.Label($"Target: {(picker != null ? picker.TargetLabel : "Dropzone Alpha")} (Dist: {distToTgt:F1} m)", _subHeaderStyle);
+            GUILayout.Label($"Coordinates: X {tgtPos.x:F0}m | Z {tgtPos.z:F0}m | Alt {tgtPos.y:F0}m", _labelStyle);
+
+            GUILayout.Space(2);
+            GUILayout.Label("Preset Landing Sites:", _labelStyle);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Dropzone A", _btnStyle)) picker?.SetTargetPosition(new Vector3(60f, 0f, 90f), "Urban Dropzone Alpha");
+            if (GUILayout.Button("Rooftop Pad", _btnStyle)) picker?.SetTargetPosition(new Vector3(140f, 40f, 110f), "Rooftop Helipad Bravo");
+            if (GUILayout.Button("North FOB", _btnStyle)) picker?.SetTargetPosition(new Vector3(-90f, 0f, 150f), "North Outpost FOB");
+            if (GUILayout.Button("Home Pad", _btnStyle)) picker?.SetTargetPosition(Vector3.zero, "Launch Pad Home");
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(4);
+            GUI.color = new Color(0.7f, 0.9f, 1f);
+            GUILayout.Label("💡 Right-Click anywhere in 3D to set target", _labelStyle);
+            GUI.color = Color.white;
 
             GUILayout.Space(4);
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Target Lat:", _labelStyle, GUILayout.Width(70));
-            _targetLatInput = GUILayout.TextField(_targetLatInput, GUILayout.Width(80));
-            GUILayout.Label("Lon:", _labelStyle, GUILayout.Width(35));
-            _targetLonInput = GUILayout.TextField(_targetLonInput, GUILayout.Width(80));
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Cruise Alt (m):", _labelStyle, GUILayout.Width(90));
-            _targetAltInput = GUILayout.TextField(_targetAltInput, GUILayout.Width(60));
-            if (GUILayout.Button("Set Target", _btnStyle))
+            if (GUILayout.Button("🚀 FLY TO TARGET", _btnStyle))
             {
-                if (double.TryParse(_targetLatInput, out double lat) && double.TryParse(_targetLonInput, out double lon) && float.TryParse(_targetAltInput, out float alt))
-                {
-                    GeoCoordinate targetGeo = new GeoCoordinate(lat, lon, alt);
-                    MissionDefinition mission = new MissionDefinition
-                    {
-                        MissionName = "Tactical Destination Alpha",
-                        HomePosition = new GeoCoordinate(13.0827, 77.5877, 0.0),
-                        CruiseAltitudeM = alt
-                    };
-                    mission.Waypoints.Add(Waypoint.Create(targetGeo, WaypointKind.Target, "Target Objective"));
-                    _mission?.Load(mission, out _);
-                }
-            }
-            GUILayout.EndHorizontal();
-
-            GUILayout.Space(6);
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("START MISSION", _btnStyle))
-            {
-                if (_mission != null && _fc != null)
+                if (picker != null) picker.ExecuteFlyToTarget();
+                else if (_mission != null && _fc != null)
                 {
                     _fc.TryArm(out _);
                     _fc.SetControlSource(ControlSource.Autonomous);
@@ -338,8 +336,13 @@ namespace Astra.UI
                     _fc.CommandTakeoff(35f);
                 }
             }
-            if (GUILayout.Button("ABORT", _btnStyle)) _mission?.Abort("Operator commanded abort.");
+            if (GUILayout.Button("🛬 AUTO-LAND", _btnStyle))
+            {
+                if (picker != null) picker.ExecuteAutoLandAtTarget();
+                else _fc?.CommandLand();
+            }
             if (GUILayout.Button("RTL (Return)", _btnStyle)) _mission?.CommandReturnHome("Operator RTL Command");
+            if (GUILayout.Button("ABORT", _btnStyle)) _mission?.Abort("Operator commanded abort.");
             GUILayout.EndHorizontal();
 
             GUILayout.EndArea();

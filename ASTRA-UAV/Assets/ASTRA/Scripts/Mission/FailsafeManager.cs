@@ -28,16 +28,27 @@ namespace Astra.Mission
         private bool _rthTriggered;
         private bool _emergencyLandTriggered;
 
+        private float _excessiveTiltTimer;
+
         private void Awake()
         {
             if (flightController == null) flightController = GetComponent<FlightControlSystem>();
+            if (flightController == null) flightController = FindFirstObjectByType<FlightControlSystem>();
             if (batterySystem == null) batterySystem = GetComponent<BatterySystem>();
+            if (batterySystem == null) batterySystem = FindFirstObjectByType<BatterySystem>();
             if (missionManager == null) missionManager = GetComponent<MissionManager>();
+            if (missionManager == null) missionManager = FindFirstObjectByType<MissionManager>();
         }
 
         private void Update()
         {
-            if (flightController == null || !flightController.IsArmed) return;
+            if (flightController == null || !flightController.IsArmed)
+            {
+                _excessiveTiltTimer = 0f;
+                return;
+            }
+
+            Transform uavTransform = flightController.transform;
 
             // 1. Battery Failsafe
             if (batterySystem != null)
@@ -61,16 +72,24 @@ namespace Astra.Mission
                 }
             }
 
-            // 2. Geofence & Tilt Limit Check
-            float currentTilt = Vector3.Angle(transform.up, Vector3.up);
+            // 2. Geofence & Tilt Limit Check (Debounced)
+            float currentTilt = Vector3.Angle(uavTransform.up, Vector3.up);
             if (currentTilt > maxSafeTiltDeg)
             {
-                string msg = $"ATTITUDE EXCURSION: Tilt {currentTilt:F1}° exceeded limit ({maxSafeTiltDeg}°).";
-                AstraEvents.RaiseFailsafeTriggered(msg);
-                EventLog.Error(LogSource.FlightController, msg);
+                _excessiveTiltTimer += Time.deltaTime;
+                if (_excessiveTiltTimer > 0.8f)
+                {
+                    string msg = $"ATTITUDE EXCURSION: Tilt {currentTilt:F1}° exceeded limit ({maxSafeTiltDeg}°).";
+                    AstraEvents.RaiseFailsafeTriggered(msg);
+                    EventLog.Error(LogSource.FlightController, msg);
+                }
+            }
+            else
+            {
+                _excessiveTiltTimer = 0f;
             }
 
-            if (transform.position.magnitude > geofenceRadiusM)
+            if (uavTransform.position.magnitude > geofenceRadiusM)
             {
                 string msg = $"GEOFENCE BREACH: Vehicle exceeded safety radius {geofenceRadiusM}m.";
                 AstraEvents.RaiseFailsafeTriggered(msg);

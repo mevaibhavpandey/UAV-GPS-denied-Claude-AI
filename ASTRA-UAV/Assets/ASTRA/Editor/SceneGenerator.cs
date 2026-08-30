@@ -119,6 +119,14 @@ namespace Astra.EditorTools
             uav.AddComponent<EngineeringViewController>();
             uav.AddComponent<PerceptionViewController>();
             uav.AddComponent<PresentationController>();
+            uav.AddComponent<InteractiveTargetPicker>();
+
+            // Visual Launch Helipad on Ground
+            GameObject helipad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            helipad.name = "Launch_Pad_Alpha";
+            helipad.transform.position = new Vector3(0, 0.02f, 0);
+            helipad.transform.localScale = new Vector3(6f, 0.04f, 6f);
+            helipad.transform.SetParent(mapRoot.transform);
 
             // 5. Ground Control Station UI
             GameObject gcsRoot = new GameObject("ASTRA_GCS_Manager");

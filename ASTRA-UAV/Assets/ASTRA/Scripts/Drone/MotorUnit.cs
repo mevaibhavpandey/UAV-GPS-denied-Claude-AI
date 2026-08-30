@@ -95,11 +95,11 @@ namespace Astra.Drone
                  "or turn backwards. It looks broken, and on a projector at a lower effective frame " +
                  "rate it looks worse. Capping the apparent rate and fading in a blur disc is what " +
                  "every flight simulator does, for the same reason.")]
-        [SerializeField] private float maxVisualDegPerSec = 1440f;
+        [SerializeField] private float maxVisualDegPerSec = 7200f;
 
         [Tooltip("Rotor speed fraction above which the blur disc fades in.")]
         [Range(0f, 1f)]
-        [SerializeField] private float blurThreshold = 0.25f;
+        [SerializeField] private float blurThreshold = 0.08f;
 
         [Header("Health")]
         [Tooltip("Thrust efficiency in [0,1]. 1 is a healthy motor. Lower values simulate a damaged " +

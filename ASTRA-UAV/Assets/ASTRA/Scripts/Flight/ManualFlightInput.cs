@@ -148,91 +148,65 @@ namespace Astra.Flight
 
             Keyboard keyboard = Keyboard.current;
 
-            // A missing keyboard is normal, not an error: the build may be running with only a
-            // gamepad attached, or on a machine where the device has not been enumerated yet.
-            if (keyboard != null)
+            // Check if any flight key is pressed (via New Input System or Legacy Input)
+            bool keyArm = (keyboard != null && keyboard[armKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.R);
+            bool keyDisarm = (keyboard != null && keyboard[disarmKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.F);
+            bool keyTakeoff = (keyboard != null && keyboard[takeoffKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.T);
+            bool keyLand = (keyboard != null && keyboard[landKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.L);
+            bool keyHover = (keyboard != null && keyboard[hoverKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.H);
+            bool keyAssume = (keyboard != null && keyboard[assumeControlKey].wasPressedThisFrame) || Input.GetKeyDown(KeyCode.M);
+
+            if (keyArm)
             {
-                HandleCommandKeys(keyboard);
+                if (flightController.TryArm(out _))
+                {
+                    flightController.SetControlSource(ControlSource.Manual);
+                    ResetAxes();
+                }
+            }
+
+            if (keyDisarm)
+            {
+                flightController.Disarm();
+                ResetAxes();
+            }
+
+            if (keyAssume)
+            {
+                flightController.SetControlSource(ControlSource.Manual);
+                flightController.CommandHover();
+                ResetAxes();
+            }
+
+            if (keyTakeoff)
+            {
+                if (!flightController.IsArmed) flightController.TryArm(out _);
+                flightController.SetControlSource(ControlSource.Manual);
+                flightController.CommandTakeoff(autoTakeoffAltitudeM);
+                ResetAxes();
+            }
+
+            if (keyLand)
+            {
+                flightController.CommandLand();
+                ResetAxes();
+            }
+
+            if (keyHover)
+            {
+                flightController.SetControlSource(ControlSource.Manual);
+                flightController.CommandHover();
+                ResetAxes();
             }
 
             UpdateAxes(keyboard);
             PushToFlightController();
         }
 
-        // ====================================================================================
-        // DISCRETE COMMANDS
-        // ====================================================================================
-
-        private void HandleCommandKeys(Keyboard keyboard)
-        {
-            if (keyboard[armKey].wasPressedThisFrame)
-            {
-                string reason;
-                if (flightController.TryArm(out reason))
-                {
-                    // Taking manual control on a successful arm from the keyboard is the honest
-                    // interpretation of the operator's intent: they armed with a key, so they intend
-                    // to fly with keys. An autonomous mission sets the control source itself.
-                    flightController.SetControlSource(ControlSource.Manual);
-                    ResetAxes();
-                }
-                // The refusal is already logged with its reason by TryArm. Nothing to add here -
-                // duplicating it would just put the same line in the log twice.
-            }
-
-            if (keyboard[disarmKey].wasPressedThisFrame)
-            {
-                flightController.Disarm();
-                ResetAxes();
-            }
-
-            if (keyboard[assumeControlKey].wasPressedThisFrame)
-            {
-                if (flightController.CurrentControlSource != ControlSource.Manual)
-                {
-                    ResetAxes();
-                    flightController.SetControlSource(ControlSource.Manual);
-
-                    // Command a hover on handover rather than dropping the aircraft into manual with
-                    // centred sticks. Taking over a moving aircraft and immediately commanding level
-                    // attitude would let it coast; commanding a hold stops it and hands the operator a
-                    // stationary aircraft, which is what they want when they grab control in a hurry.
-                    flightController.CommandHover();
-                    EventLog.Warning(LogSource.Operator,
-                        "Operator assumed manual control - holding position");
-                }
-            }
-
-            if (keyboard[takeoffKey].wasPressedThisFrame)
-            {
-                flightController.SetControlSource(ControlSource.Manual);
-                flightController.CommandTakeoff(autoTakeoffAltitudeM);
-                ResetAxes();
-            }
-
-            if (keyboard[landKey].wasPressedThisFrame)
-            {
-                flightController.CommandLand();
-                ResetAxes();
-            }
-
-            if (keyboard[hoverKey].wasPressedThisFrame)
-            {
-                flightController.CommandHover();
-                ResetAxes();
-                EventLog.Info(LogSource.Operator, "Position hold commanded by operator");
-            }
-        }
-
-        // ====================================================================================
-        // CONTINUOUS AXES
-        // ====================================================================================
-
         private void UpdateAxes(Keyboard keyboard)
         {
             float dt = Time.deltaTime;
 
-            // ---- Raw demands from the keyboard: each axis is the difference of two keys ----
             float rollDemand = 0f;
             float pitchDemand = 0f;
             float yawDemand = 0f;
@@ -242,15 +216,35 @@ namespace Astra.Flight
             {
                 if (keyboard[rollRightKey].isPressed) rollDemand += 1f;
                 if (keyboard[rollLeftKey].isPressed) rollDemand -= 1f;
-
                 if (keyboard[pitchForwardKey].isPressed) pitchDemand += 1f;
                 if (keyboard[pitchBackwardKey].isPressed) pitchDemand -= 1f;
-
                 if (keyboard[yawRightKey].isPressed) yawDemand += 1f;
                 if (keyboard[yawLeftKey].isPressed) yawDemand -= 1f;
-
                 if (keyboard[climbKey].isPressed) throttleDemand += 1f;
                 if (keyboard[descendKey].isPressed) throttleDemand -= 1f;
+            }
+
+            // Legacy Input fallback (ensures 100% responsiveness regardless of editor settings)
+            if (Input.GetKey(KeyCode.D)) rollDemand += 1f;
+            if (Input.GetKey(KeyCode.A)) rollDemand -= 1f;
+            if (Input.GetKey(KeyCode.W)) pitchDemand += 1f;
+            if (Input.GetKey(KeyCode.S)) pitchDemand -= 1f;
+            if (Input.GetKey(KeyCode.E)) yawDemand += 1f;
+            if (Input.GetKey(KeyCode.Q)) yawDemand -= 1f;
+            if (Input.GetKey(KeyCode.Space)) throttleDemand += 1f;
+            if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.LeftShift)) throttleDemand -= 1f;
+
+            // Auto-activate manual control if user starts flying with keys
+            if (Mathf.Abs(rollDemand) > 0f || Mathf.Abs(pitchDemand) > 0f || Mathf.Abs(yawDemand) > 0f || Mathf.Abs(throttleDemand) > 0f)
+            {
+                if (!flightController.IsArmed)
+                {
+                    flightController.TryArm(out _);
+                }
+                if (flightController.CurrentControlSource != ControlSource.Manual)
+                {
+                    flightController.SetControlSource(ControlSource.Manual);
+                }
             }
 
             // ---- Gamepad, if present, overrides where it is deflected ----
