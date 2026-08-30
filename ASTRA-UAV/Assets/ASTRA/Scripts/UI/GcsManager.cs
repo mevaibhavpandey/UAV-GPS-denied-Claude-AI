@@ -203,9 +203,20 @@ namespace Astra.UI
             GUI.color = Color.white;
 
             // Battery
-            GUI.Label(new Rect(680, 8, 180, 24), $"BATT: {t.BatteryPercent:F0}% ({t.BatteryVoltage:F1}V, {t.BatteryCurrentA:F1}A)", _subHeaderStyle);
+            GUI.Label(new Rect(670, 8, 180, 24), $"BATT: {t.BatteryPercent:F0}% ({t.BatteryVoltage:F1}V, {t.BatteryCurrentA:F1}A)", _subHeaderStyle);
 
-            // Time
+            // Auto Demo Button
+            if (GUI.Button(new Rect(w - 340, 6, 150, 28), "▶ AUTO DEMO (F8)", _btnStyle))
+            {
+                PresentationController demo = FindFirstObjectByType<PresentationController>();
+                if (demo != null)
+                {
+                    if (demo.IsRunning) demo.StopPresentation();
+                    else demo.StartPresentation();
+                }
+            }
+
+            // Time & Help
             GUI.Label(new Rect(w - 180, 8, 170, 24), $"T+ {Time.time:F1}s | F5:PERCEP", _labelStyle);
         }
 
