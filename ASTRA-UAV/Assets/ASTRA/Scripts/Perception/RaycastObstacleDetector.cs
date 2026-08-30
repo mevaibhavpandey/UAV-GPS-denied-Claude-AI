@@ -113,6 +113,14 @@ namespace Astra.Perception
                         if (hit.collider.transform.IsChildOf(transform) || hit.collider.transform == transform)
                             continue;
 
+                        // Ignore flat ground surface directly underneath (landing pad / ground plane)
+                        if (hit.point.y < 0.35f && hit.normal.y > 0.6f)
+                            continue;
+
+                        // Ignore hits too close to sensor (< 0.7m) to prevent self-shadowing
+                        if (hit.distance < 0.7f)
+                            continue;
+
                         GameObject hitGo = hit.collider.gameObject;
                         int trackKey = hitGo.GetInstanceID();
 

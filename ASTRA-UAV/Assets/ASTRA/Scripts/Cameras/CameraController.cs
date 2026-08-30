@@ -81,9 +81,24 @@ namespace Astra.Cameras
             currentRig = mode;
         }
 
+        private bool _isFirstFrame = true;
+
         private void LateUpdate()
         {
-            if (targetUav == null) return;
+            if (targetUav == null)
+            {
+                var fc = FindFirstObjectByType<Astra.Flight.FlightControlSystem>();
+                if (fc != null) targetUav = fc.transform;
+                if (targetUav == null) return;
+            }
+
+            // Mouse scroll zoom
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (Mathf.Abs(scroll) > 0.01f)
+            {
+                chaseOffset.z = Mathf.Clamp(chaseOffset.z + scroll * 8f, -18f, -2.5f);
+                chaseOffset.y = Mathf.Clamp(chaseOffset.y - scroll * 3f, 1.2f, 8f);
+            }
 
             switch (currentRig)
             {
@@ -111,10 +126,24 @@ namespace Astra.Cameras
         private void UpdateChaseCamera()
         {
             Vector3 desiredPos = targetUav.position + targetUav.TransformDirection(chaseOffset);
+
+            if (_isFirstFrame)
+            {
+                transform.position = desiredPos;
+                transform.LookAt(targetUav.position + Vector3.up * 0.4f);
+                _isFirstFrame = false;
+                return;
+            }
+
             transform.position = Vector3.Lerp(transform.position, desiredPos, Time.deltaTime * followDamping);
 
-            Quaternion targetRot = Quaternion.LookRotation(targetUav.position + Vector3.up * 0.5f - transform.position);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * rotationDamping);
+            Vector3 lookTarget = targetUav.position + Vector3.up * 0.4f;
+            Vector3 dir = lookTarget - transform.position;
+            if (dir.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(dir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * rotationDamping);
+            }
         }
 
         private void UpdateFpvCamera()

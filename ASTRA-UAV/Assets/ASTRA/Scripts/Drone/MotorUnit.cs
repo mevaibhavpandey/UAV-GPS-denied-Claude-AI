@@ -263,6 +263,20 @@ namespace Astra.Drone
             {
                 blurDisc.SetActive(false);
             }
+
+            Shader s = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Color");
+            Material darkMat = new Material(s);
+            darkMat.name = "ASTRA_Motor_Prop_Dark";
+            Color darkColor = new Color(0.09f, 0.09f, 0.10f, 1f);
+            if (darkMat.HasProperty("_BaseColor")) darkMat.SetColor("_BaseColor", darkColor);
+            if (darkMat.HasProperty("_Color")) darkMat.SetColor("_Color", darkColor);
+            if (darkMat.HasProperty("_Smoothness")) darkMat.SetFloat("_Smoothness", 0.4f);
+
+            Renderer[] rends = GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < rends.Length; i++)
+            {
+                if (rends[i] != null) rends[i].sharedMaterial = darkMat;
+            }
         }
 
         /// <summary>

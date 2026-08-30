@@ -193,8 +193,8 @@ namespace Astra.Mission
 
             desiredVelocity = toTarget.normalized * cruiseSpeed;
 
-            // Evaluate obstacle avoidance
-            if (worstPrediction.WillCollide)
+            // Evaluate obstacle avoidance (only when safely airborne above launch clearance)
+            if (worstPrediction.WillCollide && uavPos.y > 4.0f)
             {
                 var avoidRes = _avoidanceController.EvaluateManeuver(mostThreateningObs, worstPrediction, uavPos, desiredVelocity, 8.0f);
                 desiredVelocity = avoidRes.AvoidanceVelocity;

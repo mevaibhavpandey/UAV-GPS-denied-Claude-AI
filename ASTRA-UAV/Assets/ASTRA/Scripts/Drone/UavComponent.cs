@@ -192,8 +192,31 @@ namespace Astra.Drone
         // LIFECYCLE
         // ====================================================================================
 
+        private static Material s_DarkCarbonMat;
+
         private void Awake()
         {
+            if (s_DarkCarbonMat == null)
+            {
+                Shader s = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Color");
+                s_DarkCarbonMat = new Material(s);
+                s_DarkCarbonMat.name = "ASTRA_Tactical_Carbon_Black";
+                Color darkBlack = new Color(0.08f, 0.08f, 0.09f, 1f);
+                if (s_DarkCarbonMat.HasProperty("_BaseColor")) s_DarkCarbonMat.SetColor("_BaseColor", darkBlack);
+                if (s_DarkCarbonMat.HasProperty("_Color")) s_DarkCarbonMat.SetColor("_Color", darkBlack);
+                if (s_DarkCarbonMat.HasProperty("_Smoothness")) s_DarkCarbonMat.SetFloat("_Smoothness", 0.35f);
+                if (s_DarkCarbonMat.HasProperty("_Metallic")) s_DarkCarbonMat.SetFloat("_Metallic", 0.2f);
+            }
+
+            Renderer[] rends = GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < rends.Length; i++)
+            {
+                if (rends[i] != null)
+                {
+                    rends[i].sharedMaterial = s_DarkCarbonMat;
+                }
+            }
+            
             CaptureRestPose();
             _renderers = GetComponentsInChildren<Renderer>(true);
         }
