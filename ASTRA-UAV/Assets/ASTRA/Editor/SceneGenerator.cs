@@ -89,6 +89,7 @@ namespace Astra.EditorTools
 
             // 3. Map & City Environment
             GameObject mapRoot = new GameObject("ASTRA_Map_Environment");
+            GeoReference geoRef = mapRoot.AddComponent<GeoReference>();
             OfflineMapProvider offlineMap = mapRoot.AddComponent<OfflineMapProvider>();
             CesiumMapProvider cesiumMap = mapRoot.AddComponent<CesiumMapProvider>();
             MapManager mapMgr = mapRoot.AddComponent<MapManager>();

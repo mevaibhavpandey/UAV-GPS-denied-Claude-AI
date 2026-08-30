@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb1037c5ab7d7a747b57fb9c8ae6fe08, type: 3}
+  m_Name: UavConfiguration
+  m_EditorClassIdentifier: 
+  massKg: 2.92
+  wheelbaseM: 0.65
+  propellerDiameterM: 0.381
+  propellerPitchM: 0.1397
+  boundingRadiusM: 0.55
+  inertiaRollPitch: 0.055
+  inertiaYaw: 0.095
+  maxThrustPerMotorN: 15.7
+  motorKv: 360
+  maxMotorTorqueNm: 0.28
+  motorTimeConstantS: 0.09
+  armedIdleThrottle: 0.06
+  linearDragCoefficient: 0.55
+  quadraticDragCoefficient: 0.075
+  angularDragCoefficient: 0.09
+  descentWakeDragMultiplier: 1.8
+  maxHorizontalSpeedMps: 12
+  maxClimbRateMps: 4
+  maxDescentRateMps: 2.5
+  maxTiltAngleDeg: 35
+  maxYawRateDegPerSec: 90
+  maxAltitudeAglM: 120
+  batteryCells: 6
+  batteryCapacityMah: 6200
+  nominalVoltsPerCell: 3.7
+  fullVoltsPerCell: 4.2
+  emptyVoltsPerCell: 3.5
+  packInternalResistanceOhm: 0.018
+  avionicsCurrentA: 0.65
+  powerConstantWattsPerNewton15: 4.75
+  motorIdlePowerW: 4
+  motorPhaseResistanceOhm: 0.045
+  motorThermalResistanceCPerW: 1.2
+  motorThermalTimeConstantS: 55
+  ambientTemperatureC: 30
+  motorWarningTemperatureC: 85
+  rateKp: {x: 0.085, y: 0.085, z: 0.16}
+  rateKi: {x: 0.045, y: 0.045, z: 0.05}
+  rateKd: {x: 0.0022, y: 0.0022, z: 0}
+  attitudeKp: {x: 6.5, y: 6.5, z: 4}
+  velocityKp: 1.35
+  velocityKi: 0.28
+  velocityKd: 0.1
+  positionKp: 0.95
+  altitudeKp: 2.4
+  climbRateKp: 0.06
+  climbRateKi: 0.12
+  climbRateKd: 0.01

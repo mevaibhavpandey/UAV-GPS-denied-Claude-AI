@@ -57,6 +57,11 @@ namespace Astra.Core.Geo
                 if (_instance == null)
                 {
                     _instance = FindAnyObjectByType<GeoReference>();
+                    if (_instance == null)
+                    {
+                        GameObject go = new GameObject("[GeoReference_Origin]");
+                        _instance = go.AddComponent<GeoReference>();
+                    }
                 }
                 return _instance;
             }
