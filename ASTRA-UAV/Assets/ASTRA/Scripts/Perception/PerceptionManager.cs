@@ -27,13 +27,20 @@ namespace Astra.Perception
         {
             if (detector == null) detector = GetComponent<RaycastObstacleDetector>();
             if (droneRigidbody == null) droneRigidbody = GetComponent<Rigidbody>();
-            _predictor = new CollisionPredictor();
-            _threatAnalyzer = new ThreatAnalyzer(_predictor);
+            if (_predictor == null) _predictor = new CollisionPredictor();
+            if (_threatAnalyzer == null) _threatAnalyzer = new ThreatAnalyzer(_predictor);
         }
 
         private void FixedUpdate()
         {
+            if (detector == null) detector = GetComponent<RaycastObstacleDetector>();
             if (detector == null) return;
+
+            if (_threatAnalyzer == null)
+            {
+                if (_predictor == null) _predictor = new CollisionPredictor();
+                _threatAnalyzer = new ThreatAnalyzer(_predictor);
+            }
 
             Vector3 pos = droneRigidbody != null ? droneRigidbody.position : transform.position;
             Quaternion rot = droneRigidbody != null ? droneRigidbody.rotation : transform.rotation;
@@ -41,23 +48,26 @@ namespace Astra.Perception
 
             detector.Scan(pos, rot, Time.fixedDeltaTime);
 
-            var eval = _threatAnalyzer.Evaluate(detector.Obstacles, pos, vel, 0.65f);
-
-            if (eval.overallThreat != _currentThreat)
+            if (detector.Obstacles != null)
             {
-                ThreatLevel prev = _currentThreat;
-                _currentThreat = eval.overallThreat;
-                AstraEvents.RaiseThreatLevelChanged(prev, _currentThreat);
+                var eval = _threatAnalyzer.Evaluate(detector.Obstacles, pos, vel, 0.65f);
 
-                if (_currentThreat >= ThreatLevel.Medium)
+                if (eval.overallThreat != _currentThreat)
                 {
-                    EventLog.Warning(LogSource.Perception, $"Threat Level {_currentThreat}: Obstacle {eval.mostThreatening.TrackId} distance {eval.mostThreatening.DistanceM:F1}m, TTC {eval.worstPrediction.TimeToCollisionS:F1}s");
-                }
-            }
+                    ThreatLevel prev = _currentThreat;
+                    _currentThreat = eval.overallThreat;
+                    AstraEvents.RaiseThreatLevelChanged(prev, _currentThreat);
 
-            if (eval.worstPrediction.WillCollide)
-            {
-                AstraEvents.RaiseCollisionPredicted(eval.mostThreatening, eval.worstPrediction);
+                    if (_currentThreat >= ThreatLevel.Medium && eval.mostThreatening.DistanceM > 0)
+                    {
+                        EventLog.Warning(LogSource.Perception, $"Threat Level {_currentThreat}: Obstacle {eval.mostThreatening.TrackId} distance {eval.mostThreatening.DistanceM:F1}m, TTC {eval.worstPrediction.TimeToCollisionS:F1}s");
+                    }
+                }
+
+                if (eval.worstPrediction.WillCollide)
+                {
+                    AstraEvents.RaiseCollisionPredicted(eval.mostThreatening, eval.worstPrediction);
+                }
             }
         }
     }
