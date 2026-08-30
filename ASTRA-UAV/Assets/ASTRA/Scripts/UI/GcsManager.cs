@@ -11,6 +11,7 @@ using Astra.Mission;
 using Astra.Perception;
 using Astra.Cameras;
 using Astra.Engineering;
+using Astra.Presentation;
 
 namespace Astra.UI
 {
