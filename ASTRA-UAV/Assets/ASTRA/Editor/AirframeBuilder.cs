@@ -109,15 +109,15 @@ namespace Astra.EditorTools
             const float motorHeight = 0.030f;
 
             // ---- Materials ----
-            Material carbonMat = GetOrCreateMaterial("ASTRA_Carbon", new Color(0.12f, 0.13f, 0.15f), 0.35f);
-            Material aluminiumMat = GetOrCreateMaterial("ASTRA_Aluminium", new Color(0.52f, 0.54f, 0.57f), 0.25f);
-            Material motorMat = GetOrCreateMaterial("ASTRA_Motor", new Color(0.24f, 0.26f, 0.30f), 0.30f);
-            Material propMat = GetOrCreateMaterial("ASTRA_Propeller", new Color(0.08f, 0.08f, 0.09f), 0.55f);
-            Material batteryMat = GetOrCreateMaterial("ASTRA_Battery", new Color(0.18f, 0.20f, 0.30f), 0.60f);
-            Material pcbMat = GetOrCreateMaterial("ASTRA_PCB", new Color(0.05f, 0.24f, 0.14f), 0.55f);
-            Material avionicsMat = GetOrCreateMaterial("ASTRA_Avionics", new Color(0.20f, 0.22f, 0.24f), 0.45f);
-            Material sensorMat = GetOrCreateMaterial("ASTRA_Sensor", new Color(0.85f, 0.86f, 0.88f), 0.35f);
-            Material futureMat = GetOrCreateMaterial("ASTRA_FutureHardware", new Color(0.35f, 0.45f, 0.60f), 0.40f);
+            Material carbonMat = GetOrCreateMaterial("ASTRA_Carbon", new Color(0.04f, 0.04f, 0.045f), 0.20f);
+            Material aluminiumMat = GetOrCreateMaterial("ASTRA_Aluminium", new Color(0.18f, 0.19f, 0.21f), 0.50f);
+            Material motorMat = GetOrCreateMaterial("ASTRA_Motor", new Color(0.07f, 0.07f, 0.08f), 0.65f);
+            Material propMat = GetOrCreateMaterial("ASTRA_Propeller", new Color(0.025f, 0.025f, 0.027f), 0.35f);
+            Material batteryMat = GetOrCreateMaterial("ASTRA_Battery", new Color(0.05f, 0.05f, 0.06f), 0.25f);
+            Material pcbMat = GetOrCreateMaterial("ASTRA_PCB", new Color(0.03f, 0.12f, 0.07f), 0.55f);
+            Material avionicsMat = GetOrCreateMaterial("ASTRA_Avionics", new Color(0.06f, 0.06f, 0.07f), 0.45f);
+            Material sensorMat = GetOrCreateMaterial("ASTRA_Sensor", new Color(0.70f, 0.72f, 0.75f), 0.40f);
+            Material futureMat = GetOrCreateMaterial("ASTRA_FutureHardware", new Color(0.55f, 0.35f, 0.05f), 0.40f);
 
             // ================================================================================
             // ROOT
@@ -542,6 +542,10 @@ namespace Astra.EditorTools
             SerializedObject inputSo = new SerializedObject(input);
             inputSo.FindProperty("flightController").objectReferenceValue = controller;
             inputSo.ApplyModifiedPropertiesWithoutUndo();
+
+            // Tactical visual enhancements: matte-black enforcement, nav lights, propwash, and flight trail
+            root.AddComponent<DroneVisualEnhancer>();
+            root.AddComponent<FlightTrailRenderer>();
 
             // Report the mass budget against the configured mass. A discrepancy here is worth seeing:
             // it means the component estimates and the mass used by the physics disagree, and one of

@@ -187,33 +187,61 @@ namespace Astra.UI
             TelemetrySnapshot t = _telemetry != null ? _telemetry.Current : default;
             float w = Screen.width;
 
-            GUI.Box(new Rect(0, 0, w, 40), "", _boxStyle);
+            GUI.Box(new Rect(0, 0, w, 44), "", _boxStyle);
 
-            // Title
-            GUI.Label(new Rect(15, 8, 220, 24), "ASTRA UAV GCS v2.4", _headerStyle);
+            // 1. Project Identity
+            GUI.Label(new Rect(12, 10, 200, 24), "ASTRA UAV GCS v2.4", _headerStyle);
 
-            // Mode & State Chip
+            // 2. Flight Mode & State Chip
             string modeStr = _fc != null ? _fc.CurrentControlSource.ToString().ToUpper() : "MANUAL";
             string stateStr = _fc != null ? FlightStateInfo.ToDisplayName(_fc.State) : "DISARMED";
             bool isArmed = _fc != null && _fc.IsArmed;
 
-            Color stateColor = isArmed ? new Color(0.2f, 0.85f, 0.45f) : new Color(0.92f, 0.35f, 0.25f);
+            Color stateColor = isArmed ? new Color(0.25f, 0.90f, 0.45f) : new Color(0.92f, 0.35f, 0.25f);
             GUI.color = stateColor;
-            GUI.Label(new Rect(230, 8, 180, 24), $"[{modeStr}]  {stateStr}", _headerStyle);
+            GUI.Label(new Rect(215, 10, 190, 24), $"[{modeStr}]  {stateStr}", _headerStyle);
             GUI.color = Color.white;
 
-            // GPS Status
+            // 3. Clickable Mode Switch Buttons
+            float curX = 410;
             bool gpsOn = t.GpsEnabled;
-            string gpsText = gpsOn ? $"GPS: 3D FIX ({t.SatelliteCount} SAT)" : "GPS: OFF (VISUAL-INERTIAL)";
-            GUI.color = gpsOn ? new Color(0.3f, 0.85f, 0.45f) : new Color(0.98f, 0.65f, 0.2f);
-            GUI.Label(new Rect(440, 8, 220, 24), gpsText, _subHeaderStyle);
-            GUI.color = Color.white;
+            if (GUI.Button(new Rect(curX, 7, 130, 30), gpsOn ? "🛰️ GPS: ACTIVE" : "🚫 GPS: DENIED (F3)", gpsOn ? _btnStyle : _warnStyle))
+            {
+                var sens = AstraServices.Get<ISensorProvider>();
+                sens?.SetGpsEnabled(!gpsOn);
+            }
+            curX += 136;
 
-            // Battery
-            GUI.Label(new Rect(670, 8, 180, 24), $"BATT: {t.BatteryPercent:F0}% ({t.BatteryVoltage:F1}V, {t.BatteryCurrentA:F1}A)", _subHeaderStyle);
+            // Mode A / Mode B Perception Switcher
+            bool isPercep = _perceptionView != null && _perceptionView.CurrentMode == MapViewMode.Perception;
+            if (GUI.Button(new Rect(curX, 7, 140, 30), isPercep ? "👁️ MODE B: PERCEP" : "🌍 MODE A: REAL (F5)", _btnStyle))
+            {
+                _perceptionView?.ToggleViewMode();
+            }
+            curX += 146;
+
+            // Camera Rig Switcher
+            string camName = _cameraCtrl != null ? _cameraCtrl.CurrentRig.ToString().ToUpper() : "CHASE";
+            if (GUI.Button(new Rect(curX, 7, 130, 30), $"🎥 CAM: {camName}", _btnStyle))
+            {
+                _cameraCtrl?.CycleCamera();
+            }
+            curX += 136;
+
+            // Digital Twin Engineering View
+            bool isEng = _engView != null && _engView.IsActive;
+            if (GUI.Button(new Rect(curX, 7, 120, 30), isEng ? "⚙️ D-TWIN ON" : "⚙️ ENG VIEW (F6)", _btnStyle))
+            {
+                _engView?.ToggleEngineeringView();
+            }
+            curX += 126;
+
+            // Battery Status
+            GUI.Label(new Rect(curX, 10, 160, 24), $"🔋 {t.BatteryPercent:F0}% ({t.BatteryVoltage:F1}V)", _subHeaderStyle);
+            curX += 140;
 
             // Auto Demo Button
-            if (GUI.Button(new Rect(w - 340, 6, 150, 28), "▶ AUTO DEMO (F8)", _btnStyle))
+            if (GUI.Button(new Rect(w - 170, 7, 155, 30), "▶ AUTO DEMO (F8)", _btnStyle))
             {
                 PresentationController demo = FindFirstObjectByType<PresentationController>();
                 if (demo != null)
@@ -222,9 +250,6 @@ namespace Astra.UI
                     else demo.StartPresentation();
                 }
             }
-
-            // Time & Help
-            GUI.Label(new Rect(w - 180, 8, 170, 24), $"T+ {Time.time:F1}s | F5:PERCEP", _labelStyle);
         }
 
         private void DrawTelemetryPanel(float x, float y, float w, float h)
