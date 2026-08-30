@@ -196,8 +196,13 @@ namespace Astra.UI
             DestroyImmediate(pad.GetComponent<Collider>());
 
             // Apply Materials with Emissive Glow
-            Material beamMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            beamMat.color = beaconColor;
+            Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
+            if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            Material beamMat = new Material(lit);
+            if (beamMat.HasProperty("_BaseColor")) beamMat.SetColor("_BaseColor", beaconColor);
+            if (beamMat.HasProperty("_Color")) beamMat.SetColor("_Color", beaconColor);
             if (beamMat.HasProperty("_EmissionColor"))
             {
                 beamMat.EnableKeyword("_EMISSION");

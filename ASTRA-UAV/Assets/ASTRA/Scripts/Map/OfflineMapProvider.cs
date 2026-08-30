@@ -84,7 +84,11 @@ namespace Astra.Map
 
         private Material GetOrCreateMat(string name, Color color, float smoothness, float metallic)
         {
-            Shader lit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
+            if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse");
+
             Material mat = new Material(lit);
             mat.name = name;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);

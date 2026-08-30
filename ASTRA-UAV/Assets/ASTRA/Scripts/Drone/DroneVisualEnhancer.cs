@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using Astra.Flight;
 
@@ -65,7 +65,11 @@ namespace Astra.Drone
 
         private void CreateRuntimeMaterials()
         {
-            Shader lit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
+            if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse");
+
             _matBody  = MakeMat(lit, bodyColour,   bodySmoothness, 0.05f);
             _matArm   = MakeMat(lit, armColour,    bodySmoothness, 0.05f);
             _matMotor = MakeMat(lit, motorColour,  motorSmoothness, motorMetallic);

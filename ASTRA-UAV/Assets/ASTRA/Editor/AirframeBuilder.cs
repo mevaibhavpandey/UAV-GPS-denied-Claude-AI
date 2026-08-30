@@ -699,19 +699,12 @@ namespace Astra.EditorTools
 
             // URP's Lit shader. Falling back rather than failing, because a project that has not
             // finished importing URP yet should still produce a visible airframe rather than an error.
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse"));
             if (shader == null)
             {
-                shader = Shader.Find("Standard");
-                Debug.LogWarning(
-                    "[ASTRA] URP Lit shader not found, falling back to Standard. If the project is " +
-                    "meant to be on URP, check that the render pipeline asset is assigned in " +
-                    "Project Settings > Graphics.");
-            }
-            if (shader == null)
-            {
-                Debug.LogError("[ASTRA] No usable shader found. Airframe materials will be missing.");
-                return null;
+                shader = Shader.Find("Standard") ?? Shader.Find("Diffuse");
             }
 
             Material material = new Material(shader);

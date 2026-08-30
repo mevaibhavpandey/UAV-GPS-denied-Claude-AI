@@ -198,7 +198,10 @@ namespace Astra.Drone
         {
             if (s_DarkCarbonMat == null)
             {
-                Shader s = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Color");
+                Shader s = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                    ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                    : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
+                if (s == null) s = Shader.Find("Standard") ?? Shader.Find("Diffuse");
                 s_DarkCarbonMat = new Material(s);
                 s_DarkCarbonMat.name = "ASTRA_Tactical_Carbon_Black";
                 Color darkBlack = new Color(0.08f, 0.08f, 0.09f, 1f);

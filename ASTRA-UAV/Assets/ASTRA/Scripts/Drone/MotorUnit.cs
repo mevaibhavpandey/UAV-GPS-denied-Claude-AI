@@ -264,7 +264,10 @@ namespace Astra.Drone
                 blurDisc.SetActive(false);
             }
 
-            Shader s = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Unlit/Color");
+            Shader s = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
+            if (s == null) s = Shader.Find("Standard") ?? Shader.Find("Diffuse");
             Material darkMat = new Material(s);
             darkMat.name = "ASTRA_Motor_Prop_Dark";
             Color darkColor = new Color(0.09f, 0.09f, 0.10f, 1f);

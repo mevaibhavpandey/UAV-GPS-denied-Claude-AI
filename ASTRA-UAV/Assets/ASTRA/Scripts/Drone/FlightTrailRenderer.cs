@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using Astra.Flight;
 
@@ -49,13 +49,14 @@ namespace Astra.Drone
             lr.numCapVertices   = 4;
             lr.numCornerVertices= 4;
 
-            Shader lit = Shader.Find("Universal Render Pipeline/Particles/Unlit")
-                      ?? Shader.Find("Particles/Standard Unlit")
-                      ?? Shader.Find("Sprites/Default");
+            Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Sprites/Default"))
+                : (Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Particles/Standard Unlit"));
             if (lit != null)
             {
                 var mat = new Material(lit);
-                mat.SetColor("_BaseColor", c0);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c0);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", c0);
                 lr.material = mat;
             }
 
