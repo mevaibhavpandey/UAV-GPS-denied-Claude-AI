@@ -1125,19 +1125,20 @@ namespace Astra.Flight
             float targetPitchRate = config.AttitudeKp.y * (targetPitchRad - pitchRad);
 
             // ---- Rate loop: rate error (rad/s) -> mixer demand ----
+            // In Unity coordinates:
+            // - Rolling right (right wing down) produces negative Z angular velocity.
+            // - Pitching up (nose up) produces negative X angular velocity.
+            // - Yawing right (clockwise) produces negative Y angular velocity.
+            // Inverting them gives positive = roll right, pitch up, yaw right, matching PID & Mixer.
             Vector3 bodyRatesDeg = physics.BodyAngularVelocityDeg();
-            float rollRateRad = bodyRatesDeg.z * Mathf.Deg2Rad;
-            float pitchRateRad = bodyRatesDeg.x * Mathf.Deg2Rad;
-            float yawRateRad = bodyRatesDeg.y * Mathf.Deg2Rad;
+            float rollRateRad = -bodyRatesDeg.z * Mathf.Deg2Rad;
+            float pitchRateRad = -bodyRatesDeg.x * Mathf.Deg2Rad;
+            float yawRateRad = -bodyRatesDeg.y * Mathf.Deg2Rad;
 
             float rollDemand = _rateRoll.Update(targetRollRate, rollRateRad, dt);
             float pitchDemand = _ratePitch.Update(targetPitchRate, pitchRateRad, dt);
             float yawDemand = _rateYaw.Update(targetYawRateRadPerSec, yawRateRad, dt);
 
-            // Sign note: the mixer's pitch convention is positive = nose up, and pitchRad is already
-            // positive = nose up, so the pitch demand passes through unchanged. Roll likewise:
-            // positive = right side down on both sides of the boundary. Stated explicitly because a
-            // sign error here is invisible in the code and immediately obvious in the air.
             physics.SetMixerDemand(throttle, rollDemand, pitchDemand, yawDemand);
         }
 

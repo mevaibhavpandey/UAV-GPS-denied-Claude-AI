@@ -128,6 +128,14 @@ namespace Astra.EditorTools
             helipad.transform.localScale = new Vector3(6f, 0.04f, 6f);
             helipad.transform.SetParent(mapRoot.transform);
 
+            Shader padShader = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+                ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+                : (Shader.Find("Standard") ?? Shader.Find("Diffuse"));
+            Material padMat = new Material(padShader);
+            if (padMat.HasProperty("_BaseColor")) padMat.SetColor("_BaseColor", new Color(0.12f, 0.45f, 0.30f));
+            if (padMat.HasProperty("_Color")) padMat.SetColor("_Color", new Color(0.12f, 0.45f, 0.30f));
+            helipad.GetComponent<Renderer>().material = padMat;
+
             // 5. Ground Control Station UI
             GameObject gcsRoot = new GameObject("ASTRA_GCS_Manager");
             gcsRoot.AddComponent<GcsManager>();

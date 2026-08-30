@@ -536,19 +536,8 @@ namespace Astra.Flight
             Vector3 angular = _body.angularVelocity;
             if (angular.sqrMagnitude > 0.000001f)
             {
-                // Dynamic angular damping providing rock-solid gyro stability
-                _body.AddTorque(-angular * (config.AngularDragCoefficient * 8f), ForceMode.Force);
-            }
-
-            // Passive pendulum / dihedral aerodynamic self-leveling torque
-            Vector3 currentUp = transform.up;
-            Vector3 worldUp = Vector3.up;
-            Vector3 tiltAxis = Vector3.Cross(currentUp, worldUp);
-            float tiltAngle = Vector3.Angle(currentUp, worldUp);
-            if (tiltAngle > 0.5f && _motorsArmed)
-            {
-                float restoreStrength = Mathf.Clamp(tiltAngle / config.MaxTiltAngleDeg, 0f, 2.5f) * 1.8f;
-                _body.AddTorque(tiltAxis.normalized * (restoreStrength * _totalThrustN * 0.08f), ForceMode.Force);
+                // Aerodynamic rotational damping
+                _body.AddTorque(-angular * (config.AngularDragCoefficient * 2.0f), ForceMode.Force);
             }
         }
 

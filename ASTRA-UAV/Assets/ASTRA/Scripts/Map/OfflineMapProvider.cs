@@ -87,10 +87,11 @@ namespace Astra.Map
             Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
                 ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
                 : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
-            if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color");
 
             Material mat = new Material(lit);
             mat.name = name;
+            mat.color = color;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
@@ -111,11 +112,11 @@ namespace Astra.Map
             _buildingBounds.Clear();
 
             // Tactical Materials
-            Material groundMat = groundMaterial ?? GetOrCreateMat("Mat_Ground", new Color(0.08f, 0.10f, 0.12f), 0.15f, 0.05f);
-            Material asphaltMat = roadMaterial ?? GetOrCreateMat("Mat_Asphalt", new Color(0.12f, 0.14f, 0.16f), 0.25f, 0.05f);
-            Material bldgDarkMat = buildingMaterial ?? GetOrCreateMat("Mat_BldgDark", new Color(0.15f, 0.17f, 0.20f), 0.40f, 0.20f);
-            Material bldgGlassMat = GetOrCreateMat("Mat_BldgGlass", new Color(0.10f, 0.20f, 0.28f), 0.85f, 0.70f);
-            Material helipadMat = GetOrCreateMat("Mat_Helipad", new Color(0.18f, 0.55f, 0.40f), 0.50f, 0.10f);
+            Material groundMat = GetOrCreateMat("Mat_Ground", new Color(0.10f, 0.12f, 0.14f), 0.15f, 0.05f);
+            Material asphaltMat = GetOrCreateMat("Mat_Asphalt", new Color(0.14f, 0.16f, 0.18f), 0.25f, 0.05f);
+            Material bldgDarkMat = GetOrCreateMat("Mat_BldgDark", new Color(0.18f, 0.20f, 0.23f), 0.40f, 0.20f);
+            Material bldgGlassMat = GetOrCreateMat("Mat_BldgGlass", new Color(0.12f, 0.22f, 0.30f), 0.85f, 0.70f);
+            Material helipadMat = GetOrCreateMat("Mat_Helipad", new Color(0.14f, 0.50f, 0.35f), 0.50f, 0.10f);
 
             // 1. Ground Base Terrain
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
@@ -124,7 +125,7 @@ namespace Astra.Map
             ground.transform.SetParent(_environmentRoot.transform);
             ground.transform.position = Vector3.zero;
             ground.transform.localScale = new Vector3(usableRadiusM * 0.2f, 1f, usableRadiusM * 0.2f);
-            ground.GetComponent<Renderer>().material = groundMat;
+            ground.GetComponent<Renderer>().sharedMaterial = groundMat;
 
             // 2. City Grid & Buildings
             float totalBlockStep = blockSizeM + streetWidthM;
@@ -152,7 +153,7 @@ namespace Astra.Map
                     roadBlock.transform.SetParent(_environmentRoot.transform);
                     roadBlock.transform.position = new Vector3(bx, 0.01f, bz);
                     roadBlock.transform.localScale = new Vector3(totalBlockStep * 0.1f, 1f, totalBlockStep * 0.1f);
-                    roadBlock.GetComponent<Renderer>().material = asphaltMat;
+                    roadBlock.GetComponent<Renderer>().sharedMaterial = asphaltMat;
 
                     // Generate 1-3 buildings per block
                     int subBuildings = prng.Next(1, 3);
@@ -174,7 +175,7 @@ namespace Astra.Map
                         bldg.transform.localScale = new Vector3(subW, buildingHeight, subL);
 
                         Material mat = (sb % 2 == 0) ? bldgDarkMat : bldgGlassMat;
-                        bldg.GetComponent<Renderer>().material = mat;
+                        bldg.GetComponent<Renderer>().sharedMaterial = mat;
 
                         _buildingBounds.Add(new Bounds(bldg.transform.position, bldg.transform.localScale));
 
@@ -187,7 +188,7 @@ namespace Astra.Map
                             pad.transform.SetParent(bldg.transform);
                             pad.transform.localPosition = new Vector3(0f, 0.505f, 0f);
                             pad.transform.localScale = new Vector3(0.75f, 0.01f, 0.75f);
-                            pad.GetComponent<Renderer>().material = helipadMat;
+                            pad.GetComponent<Renderer>().sharedMaterial = helipadMat;
                         }
                     }
                 }
@@ -201,7 +202,7 @@ namespace Astra.Map
             obstacleDrone.transform.position = new Vector3(-80f, 35f, 160f);
             obstacleDrone.transform.localScale = new Vector3(3.5f, 2.0f, 3.5f);
             Material threatMat = GetOrCreateMat("Mat_Threat", new Color(0.95f, 0.22f, 0.18f), 0.75f, 0.5f);
-            obstacleDrone.GetComponent<Renderer>().material = threatMat;
+            obstacleDrone.GetComponent<Renderer>().sharedMaterial = threatMat;
             obstacleDrone.AddComponent<DynamicObstaclePatrol>();
         }
 
