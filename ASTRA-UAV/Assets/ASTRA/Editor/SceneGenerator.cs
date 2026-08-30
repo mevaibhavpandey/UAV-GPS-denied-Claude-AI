@@ -6,6 +6,7 @@ using Astra.Cameras;
 using Astra.Contracts;
 using Astra.Core;
 using Astra.Core.Config;
+using Astra.Core.Geo;
 using Astra.Drone;
 using Astra.Engineering;
 using Astra.Flight;
