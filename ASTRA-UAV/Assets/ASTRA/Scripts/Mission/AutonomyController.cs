@@ -146,7 +146,7 @@ namespace Astra.Mission
             if (missionManager != null && missionManager.ActiveWaypointIndex >= 0)
             {
                 GeoReference geo = GeoReference.Instance;
-                targetDestination = geo != null ? geo.ToWorld(missionManager.ActiveWaypoint.Position) : uavPos;
+                targetDestination = geo != null ? geo.ToUnity(missionManager.ActiveWaypoint.Position) : uavPos;
             }
 
             if (_currentPath == null || _currentPath.Count == 0 || _currentPathIndex >= _currentPath.Count)

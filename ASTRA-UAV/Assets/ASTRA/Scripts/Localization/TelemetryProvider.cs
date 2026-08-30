@@ -83,7 +83,7 @@ namespace Astra.Localization
             if (mission != null && mission.Current != null && mission.ActiveWaypointIndex >= 0)
             {
                 GeoReference geo = GeoReference.Instance;
-                Vector3 targetPos = geo != null ? geo.ToWorld(mission.ActiveWaypoint.Position) : pos;
+                Vector3 targetPos = geo != null ? geo.ToUnity(mission.ActiveWaypoint.Position) : pos;
                 distToTarget = Vector3.Distance(pos, targetPos);
                 float speed = vel.magnitude;
                 eta = speed > 0.5f ? distToTarget / speed : distToTarget / 8.0f;
