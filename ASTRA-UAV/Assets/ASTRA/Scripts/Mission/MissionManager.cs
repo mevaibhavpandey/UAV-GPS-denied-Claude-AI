@@ -72,10 +72,10 @@ namespace Astra.Mission
             };
 
             // Waypoints in local offset coords converted to lat/lon
-            GeoReference geo = GeoReference.Current;
-            defaultMission.Waypoints.Add(Waypoint.Create(geo.ToGeo(new Vector3(0, 35, 0)), WaypointKind.Transit, "WP1 - Climb"));
-            defaultMission.Waypoints.Add(Waypoint.Create(geo.ToGeo(new Vector3(60, 35, 120)), WaypointKind.Transit, "WP2 - Corridor Alpha"));
-            defaultMission.Waypoints.Add(Waypoint.Create(geo.ToGeo(new Vector3(140, 35, 240)), WaypointKind.Target, "WP3 - Target Objective"));
+            GeoReference geo = GeoReference.Instance;
+            defaultMission.Waypoints.Add(Waypoint.Create(geo != null ? geo.ToGeo(new Vector3(0, 35, 0)) : new GeoCoordinate(13.0827, 77.5877, 35.0), WaypointKind.Transit, "WP1 - Climb"));
+            defaultMission.Waypoints.Add(Waypoint.Create(geo != null ? geo.ToGeo(new Vector3(60, 35, 120)) : new GeoCoordinate(13.0837, 77.5887, 35.0), WaypointKind.Transit, "WP2 - Corridor Alpha"));
+            defaultMission.Waypoints.Add(Waypoint.Create(geo != null ? geo.ToGeo(new Vector3(140, 35, 240)) : new GeoCoordinate(13.0847, 77.5897, 35.0), WaypointKind.Target, "WP3 - Target Objective"));
 
             Load(defaultMission, out _);
         }
@@ -124,7 +124,7 @@ namespace Astra.Mission
 
         public void Abort(string reason)
         {
-            EventLog.Warn(LogSource.Mission, $"Mission ABORTED: {reason}");
+            EventLog.Warning(LogSource.Mission, $"Mission ABORTED: {reason}");
             SetPhase(MissionPhase.Aborted);
             AstraEvents.RaiseMissionEnded(false, reason);
         }

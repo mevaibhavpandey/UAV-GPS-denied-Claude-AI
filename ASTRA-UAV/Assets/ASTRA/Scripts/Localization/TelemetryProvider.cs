@@ -82,11 +82,17 @@ namespace Astra.Localization
             float eta = 0f;
             if (mission != null && mission.Current != null && mission.ActiveWaypointIndex >= 0)
             {
-                Vector3 targetPos = GeoReference.Current.ToWorld(mission.ActiveWaypoint.Position);
+                GeoReference geo = GeoReference.Instance;
+                Vector3 targetPos = geo != null ? geo.ToWorld(mission.ActiveWaypoint.Position) : pos;
                 distToTarget = Vector3.Distance(pos, targetPos);
                 float speed = vel.magnitude;
                 eta = speed > 0.5f ? distToTarget / speed : distToTarget / 8.0f;
             }
+
+            float battFrac = batterySystem != null ? batterySystem.StateOfCharge : 1.0f;
+            float battVolt = batterySystem != null ? batterySystem.VoltageV : 22.2f;
+            float battAmp = batterySystem != null ? batterySystem.CurrentA : 0f;
+            float battMah = batterySystem != null ? batterySystem.ConsumedMah : 0f;
 
             _current = new TelemetrySnapshot
             {
@@ -101,15 +107,15 @@ namespace Astra.Localization
                 VelocityWorld = vel,
                 Latitude = 13.0827 + (pos.z / 111319.5),
                 Longitude = 77.5877 + (pos.x / 108480.0),
-                BatteryPercent = batterySystem != null ? batterySystem.RemainingFraction * 100f : 100f,
-                BatteryVoltage = batterySystem != null ? batterySystem.Voltage : 22.2f,
-                BatteryCurrentA = batterySystem != null ? batterySystem.CurrentDrawA : 0f,
-                BatteryConsumedMah = batterySystem != null ? batterySystem.ConsumedMah : 0f,
-                EstimatedFlightTimeRemainingS = batterySystem != null ? batterySystem.EstimatedRemainingSeconds : 1200f,
-                Motor1Rpm = (motors != null && motors.Length > 0 && motors[0] != null) ? motors[0].CurrentRpm : 0f,
-                Motor2Rpm = (motors != null && motors.Length > 1 && motors[1] != null) ? motors[1].CurrentRpm : 0f,
-                Motor3Rpm = (motors != null && motors.Length > 2 && motors[2] != null) ? motors[2].CurrentRpm : 0f,
-                Motor4Rpm = (motors != null && motors.Length > 3 && motors[3] != null) ? motors[3].CurrentRpm : 0f,
+                BatteryPercent = battFrac * 100f,
+                BatteryVoltage = battVolt,
+                BatteryCurrentA = battAmp,
+                BatteryConsumedMah = battMah,
+                EstimatedFlightTimeRemainingS = battAmp > 0.5f ? (battFrac * 10000f / battAmp) * 3.6f : 1200f,
+                Motor1Rpm = (motors != null && motors.Length > 0 && motors[0] != null) ? motors[0].Rpm : 0f,
+                Motor2Rpm = (motors != null && motors.Length > 1 && motors[1] != null) ? motors[1].Rpm : 0f,
+                Motor3Rpm = (motors != null && motors.Length > 2 && motors[2] != null) ? motors[2].Rpm : 0f,
+                Motor4Rpm = (motors != null && motors.Length > 3 && motors[3] != null) ? motors[3].Rpm : 0f,
                 ThrottlePercent = flightController != null ? 50f : 0f,
                 GpsEnabled = gpsActive,
                 SatelliteCount = satCount,

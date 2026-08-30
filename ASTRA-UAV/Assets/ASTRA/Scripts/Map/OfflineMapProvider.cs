@@ -50,7 +50,7 @@ namespace Astra.Map
 
         private void Start()
         {
-            Initialise(GeoReference.Current);
+            Initialise(GeoReference.Instance);
         }
 
         public void Initialise(GeoReference georeference)

@@ -44,6 +44,7 @@ namespace Astra.UI
         private CameraController _cameraCtrl;
 
         private Vector2 _logScroll;
+        private readonly List<LogEntry> _logBuffer = new List<LogEntry>();
         private string _targetLatInput = "13.0850";
         private string _targetLonInput = "77.5900";
         private string _targetAltInput = "35.0";
@@ -74,19 +75,19 @@ namespace Astra.UI
             if (Input.GetKeyDown(KeyCode.F1))
             {
                 _fc?.SetControlSource(ControlSource.Manual);
-                EventLog.Info(LogSource.Flight, "Control mode switched to MANUAL (F1).");
+                EventLog.Info(LogSource.FlightController, "Control mode switched to MANUAL (F1).");
             }
             else if (Input.GetKeyDown(KeyCode.F2))
             {
                 _fc?.SetControlSource(ControlSource.Autonomous);
                 AstraServices.Get<ISensorProvider>()?.SetGpsEnabled(true);
-                EventLog.Info(LogSource.Flight, "Control mode switched to AUTONOMOUS GPS (F2).");
+                EventLog.Info(LogSource.FlightController, "Control mode switched to AUTONOMOUS GPS (F2).");
             }
             else if (Input.GetKeyDown(KeyCode.F3))
             {
                 _fc?.SetControlSource(ControlSource.Autonomous);
                 AstraServices.Get<ISensorProvider>()?.SetGpsEnabled(false);
-                EventLog.Warn(LogSource.Flight, "Control mode switched to AUTONOMOUS GPS-DENIED (F3).");
+                EventLog.Warning(LogSource.FlightController, "Control mode switched to AUTONOMOUS GPS-DENIED (F3).");
             }
             else if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -365,17 +366,14 @@ namespace Astra.UI
             GUILayout.BeginArea(new Rect(x + 10, y + 25, w - 20, h - 35));
 
             _logScroll = GUILayout.BeginScrollView(_logScroll);
-            var logs = EventLog.All;
-            if (logs != null)
+            EventLog.GetEntries(_logBuffer, 20);
+            for (int i = 0; i < _logBuffer.Count; i++)
             {
-                for (int i = Mathf.Max(0, logs.Count - 8); i < logs.Count; i++)
-                {
-                    LogEntry entry = logs[i];
-                    GUIStyle st = _labelStyle;
-                    if (entry.Level == LogLevel.Error) st = _warnStyle;
-                    else if (entry.Level == LogLevel.Warning) st = _warnStyle;
-                    GUILayout.Label(entry.ToLogLine(), st);
-                }
+                LogEntry entry = _logBuffer[i];
+                GUIStyle st = _labelStyle;
+                if (entry.Severity == LogSeverity.Error || entry.Severity == LogSeverity.Critical) st = _warnStyle;
+                else if (entry.Severity == LogSeverity.Warning) st = _warnStyle;
+                GUILayout.Label(entry.ToConsoleString(), st);
             }
             GUILayout.EndScrollView();
             GUILayout.EndArea();

@@ -3,6 +3,7 @@ using UnityEngine;
 using Astra.Contracts;
 using Astra.Core;
 using Astra.Core.Config;
+using Astra.Core.Logging;
 using Astra.Flight;
 
 namespace Astra.Localization
@@ -44,6 +45,7 @@ namespace Astra.Localization
         private BarometerSample _lastBaro;
         private MagnetometerSample _lastMag;
         private double _simTime;
+        private Vector3 _prevVelocity;
 
         public string Name => "Simulated Sensor Suite (Pixhawk 2.4.8)";
         public DataProvenance Provenance => DataProvenance.Simulated;
@@ -70,6 +72,7 @@ namespace Astra.Localization
         public bool Initialise()
         {
             _simTime = 0;
+            _prevVelocity = Vector3.zero;
             status = SubsystemStatus.Ok;
             AstraEvents.RaiseGpsAvailabilityChanged(gpsAvailable);
             return true;
@@ -86,7 +89,9 @@ namespace Astra.Localization
 
             // 1. Synthesize IMU: Specific force = body_accel - body_gravity
             Vector3 gravityWorld = Physics.gravity;
-            Vector3 accelWorld = (droneRigidbody != null && physics != null) ? (physics.TotalThrustVector / (physics.MassKg > 0 ? physics.MassKg : 1.5f)) : -gravityWorld;
+            Vector3 accelWorld = fixedDeltaTime > 0.0001f ? (vel - _prevVelocity) / fixedDeltaTime : Vector3.zero;
+            _prevVelocity = vel;
+
             Vector3 specificForceWorld = accelWorld - gravityWorld;
             Vector3 specificForceBody = Quaternion.Inverse(rot) * specificForceWorld;
 
@@ -134,7 +139,7 @@ namespace Astra.Localization
                 };
             }
 
-            // 3. Synthesize Barometer (hypsometric formula: P = P0 * (1 - L*h/T0)^(g*M/(R*L)))
+            // 3. Synthesize Barometer
             float baroNoise = GaussianNoise(0, baroNoiseStdDevM);
             float currentAlt = pos.y + baroNoise;
             float pressure = seaLevelPressurePa * Mathf.Pow(1f - (0.0065f * currentAlt / 288.15f), 5.255f);
@@ -150,7 +155,7 @@ namespace Astra.Localization
 
             // 4. Synthesize Magnetometer (North = Z axis)
             Vector3 northWorld = Vector3.forward;
-            Vector3 magBody = Quaternion.Inverse(rot) * (northWorld * 45f + Vector3.down * 15f); // 45 uT horizontal, 15 uT dip
+            Vector3 magBody = Quaternion.Inverse(rot) * (northWorld * 45f + Vector3.down * 15f);
             float heading = rot.eulerAngles.y;
 
             _lastMag = new MagnetometerSample
@@ -173,7 +178,7 @@ namespace Astra.Localization
             {
                 gpsAvailable = enabled;
                 AstraEvents.RaiseGpsAvailabilityChanged(enabled);
-                EventLog.Warn(LogSource.Navigation, enabled ? "GNSS signal acquired. 3D Lock." : "GNSS signal lost! Entering GPS-Denied operation.");
+                EventLog.Warning(LogSource.Navigation, enabled ? "GNSS signal acquired. 3D Lock." : "GNSS signal lost! Entering GPS-Denied operation.");
             }
         }
 

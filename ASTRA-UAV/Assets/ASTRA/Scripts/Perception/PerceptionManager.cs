@@ -51,7 +51,7 @@ namespace Astra.Perception
 
                 if (_currentThreat >= ThreatLevel.Medium)
                 {
-                    EventLog.Warn(LogSource.Perception, $"Threat Level {_currentThreat}: Obstacle {eval.mostThreatening.TrackId} distance {eval.mostThreatening.DistanceM:F1}m, TTC {eval.worstPrediction.TimeToCollisionS:F1}s");
+                    EventLog.Warning(LogSource.Perception, $"Threat Level {_currentThreat}: Obstacle {eval.mostThreatening.TrackId} distance {eval.mostThreatening.DistanceM:F1}m, TTC {eval.worstPrediction.TimeToCollisionS:F1}s");
                 }
             }
 

@@ -70,7 +70,7 @@ namespace Astra.Map
 
             _activeProvider?.Shutdown();
             _activeProvider = newProvider;
-            _activeProvider.Initialise(GeoReference.Current);
+            _activeProvider.Initialise(GeoReference.Instance);
 
             AstraServices.Register<IMapDataProvider>(_activeProvider);
             AstraEvents.RaiseMapProviderChanged(_activeProvider);

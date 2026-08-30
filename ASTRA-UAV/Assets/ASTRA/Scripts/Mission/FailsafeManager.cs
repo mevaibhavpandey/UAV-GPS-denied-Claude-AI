@@ -42,13 +42,13 @@ namespace Astra.Mission
             // 1. Battery Failsafe
             if (batterySystem != null)
             {
-                float frac = batterySystem.RemainingFraction;
+                float frac = batterySystem.StateOfCharge;
                 if (!_emergencyLandTriggered && frac <= emergencyLandBatteryThreshold)
                 {
                     _emergencyLandTriggered = true;
                     string msg = $"CRITICAL BATTERY ({frac * 100f:F0}%). Executing emergency auto-land.";
                     AstraEvents.RaiseFailsafeTriggered(msg);
-                    EventLog.Error(LogSource.Failsafe, msg);
+                    EventLog.Error(LogSource.FlightController, msg);
                     flightController.CommandLand();
                 }
                 else if (!_rthTriggered && frac <= returnHomeBatteryThreshold)
@@ -56,7 +56,7 @@ namespace Astra.Mission
                     _rthTriggered = true;
                     string msg = $"LOW BATTERY ({frac * 100f:F0}%). Triggering Return-to-Launch failsafe.";
                     AstraEvents.RaiseFailsafeTriggered(msg);
-                    EventLog.Warn(LogSource.Failsafe, msg);
+                    EventLog.Warning(LogSource.FlightController, msg);
                     missionManager?.CommandReturnHome("Low Battery Reserve Failsafe");
                 }
             }
@@ -67,14 +67,14 @@ namespace Astra.Mission
             {
                 string msg = $"ATTITUDE EXCURSION: Tilt {currentTilt:F1}° exceeded limit ({maxSafeTiltDeg}°).";
                 AstraEvents.RaiseFailsafeTriggered(msg);
-                EventLog.Error(LogSource.Failsafe, msg);
+                EventLog.Error(LogSource.FlightController, msg);
             }
 
             if (transform.position.magnitude > geofenceRadiusM)
             {
                 string msg = $"GEOFENCE BREACH: Vehicle exceeded safety radius {geofenceRadiusM}m.";
                 AstraEvents.RaiseFailsafeTriggered(msg);
-                EventLog.Warn(LogSource.Failsafe, msg);
+                EventLog.Warning(LogSource.FlightController, msg);
                 missionManager?.CommandReturnHome("Geofence Containment Failsafe");
             }
         }

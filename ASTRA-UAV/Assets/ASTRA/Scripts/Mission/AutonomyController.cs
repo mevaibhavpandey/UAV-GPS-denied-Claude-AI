@@ -145,7 +145,8 @@ namespace Astra.Mission
             Vector3 targetDestination = uavPos;
             if (missionManager != null && missionManager.ActiveWaypointIndex >= 0)
             {
-                targetDestination = GeoReference.Current.ToWorld(missionManager.ActiveWaypoint.Position);
+                GeoReference geo = GeoReference.Instance;
+                targetDestination = geo != null ? geo.ToWorld(missionManager.ActiveWaypoint.Position) : uavPos;
             }
 
             if (_currentPath == null || _currentPath.Count == 0 || _currentPathIndex >= _currentPath.Count)
