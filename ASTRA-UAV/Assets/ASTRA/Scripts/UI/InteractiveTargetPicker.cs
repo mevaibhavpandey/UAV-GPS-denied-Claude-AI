@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using Astra.Contracts;
 using Astra.Core;
@@ -110,7 +110,7 @@ namespace Astra.UI
                 mission.Waypoints.Add(Waypoint.Create(GeoReference.Instance.ToGeo(approachPoint), WaypointKind.Target, $"{label} Overhead"));
 
                 // Waypoint 3: Landing Touchdown
-                mission.Waypoints.Add(Waypoint.Create(geo, WaypointKind.Land, $"{label} Helipad"));
+                mission.Waypoints.Add(Waypoint.Create(geo, WaypointKind.Target, $"{label} Helipad"));
 
                 _mission.Load(mission, out _);
             }
