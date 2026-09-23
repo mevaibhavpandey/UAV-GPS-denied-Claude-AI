@@ -166,6 +166,15 @@ namespace Astra.Core.Config
         [Tooltip("Maximum commanded yaw rate, degrees per second.")]
         [SerializeField] private float maxYawRateDegPerSec = 90f;
 
+        [Tooltip("Maximum body roll/pitch rate the attitude loop is allowed to command, deg/s. " +
+                 "Without this bound a full-stick angle error (AttitudeKp x MaxTilt) demands a very " +
+                 "high body rate - here roughly 6.5 x 35deg = 227 deg/s - which the aircraft reaches " +
+                 "with enough momentum to overshoot the tilt limit and oscillate, the 'uncontrolled " +
+                 "rotation at extreme stick' failure. Clamping the target rate is exactly what " +
+                 "ArduPilot's ATC_RATE_R/P_MAX do and for the same reason. Only bites at large angle " +
+                 "errors; ordinary flying commands rates well below this.")]
+        [SerializeField] private float maxAttitudeRateDegPerSec = 180f;
+
         [Tooltip("Maximum operating altitude above launch, metres. 120 m is the ceiling for " +
                  "small unmanned aircraft in most jurisdictions including India's DGCA rules for " +
                  "the micro and small categories. [UNVERIFIED - confirm against current DGCA CAR " +
@@ -362,6 +371,7 @@ namespace Astra.Core.Config
         public float MaxDescentRateMps { get { return maxDescentRateMps; } }
         public float MaxTiltAngleDeg { get { return maxTiltAngleDeg; } }
         public float MaxYawRateDegPerSec { get { return maxYawRateDegPerSec; } }
+        public float MaxAttitudeRateDegPerSec { get { return maxAttitudeRateDegPerSec; } }
         public float MaxAltitudeAglM { get { return maxAltitudeAglM; } }
 
         public int BatteryCells { get { return batteryCells; } }

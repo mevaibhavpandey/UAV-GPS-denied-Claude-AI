@@ -1124,6 +1124,17 @@ namespace Astra.Flight
             float targetRollRate = config.AttitudeKp.x * (targetRollRad - rollRad);
             float targetPitchRate = config.AttitudeKp.y * (targetPitchRad - pitchRad);
 
+            // Bound the body rate the attitude loop may demand. A full-stick angle error multiplied
+            // by AttitudeKp asks for a very high rate (~227 deg/s at the 35 deg limit with Kp 6.5).
+            // The airframe reaches that rate carrying enough angular momentum to sail past the tilt
+            // limit before the rate loop can arrest it, and then oscillates about the limit - which
+            // is precisely the "hold A/D or W/S hard and it starts rotating uncontrollably" symptom.
+            // Clamping the target rate is what ArduPilot's ATC_RATE_*_MAX do. It changes nothing in
+            // ordinary flight, where the angle error and therefore the demanded rate are small.
+            float maxAttRate = config.MaxAttitudeRateDegPerSec * Mathf.Deg2Rad;
+            targetRollRate = Mathf.Clamp(targetRollRate, -maxAttRate, maxAttRate);
+            targetPitchRate = Mathf.Clamp(targetPitchRate, -maxAttRate, maxAttRate);
+
             // ---- Rate loop: rate error (rad/s) -> mixer demand ----
             // In Unity coordinates:
             // - Rolling right (right wing down) produces negative Z angular velocity.
@@ -1140,6 +1151,29 @@ namespace Astra.Flight
             float yawDemand = _rateYaw.Update(targetYawRateRadPerSec, yawRateRad, dt);
 
             physics.SetMixerDemand(throttle, rollDemand, pitchDemand, yawDemand);
+
+            // Mixer-aware anti-windup. The rate PIDs above police their own output clamp, but they
+            // cannot see the mixer scaling their demand down to protect a higher-priority axis. When
+            // that happens the delivered moment is smaller than commanded, the rate error lingers,
+            // and the integrator winds up unseen - the hidden windup behind "hold the stick hard and
+            // it spins when released". Bleed the affected integrators in proportion to the authority
+            // actually delivered. In unsaturated ordinary flight both factors are 1 and this is a
+            // no-op, so the verified normal-flight behaviour is unchanged.
+            MotorMixer mixer = physics.Mixer;
+            if (mixer != null)
+            {
+                float attAuthority = mixer.AttitudeAuthorityDelivered;
+                if (attAuthority < 0.999f)
+                {
+                    _rateRoll.BleedIntegral(attAuthority);
+                    _ratePitch.BleedIntegral(attAuthority);
+                }
+                float yawAuthority = mixer.YawAuthorityDelivered;
+                if (yawAuthority < 0.999f)
+                {
+                    _rateYaw.BleedIntegral(yawAuthority);
+                }
+            }
         }
 
         /// <summary>

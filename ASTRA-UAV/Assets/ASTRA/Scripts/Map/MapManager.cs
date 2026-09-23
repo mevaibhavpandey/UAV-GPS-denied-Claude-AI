@@ -35,9 +35,17 @@ namespace Astra.Map
         {
             if (useCesiumByDefault && cesiumProvider != null)
             {
-                SwitchToProvider(cesiumProvider);
+                cesiumProvider.Initialise(GeoReference.Instance);
+                if (cesiumProvider.IsReady)
+                {
+                    SwitchToProvider(cesiumProvider);
+                    return;
+                }
+                EventLog.Warning(LogSource.System,
+                    "Cesium requested as default but unavailable (" + cesiumProvider.StatusDetail +
+                    "). Falling back to offline environment.");
             }
-            else if (offlineProvider != null)
+            if (offlineProvider != null)
             {
                 SwitchToProvider(offlineProvider);
             }
@@ -56,7 +64,20 @@ namespace Astra.Map
         {
             if (_activeProvider == offlineProvider && cesiumProvider != null)
             {
-                SwitchToProvider(cesiumProvider);
+                // Only switch to Cesium if the real package + tileset are actually available.
+                // Probing Initialise first means we never swap the visible world for an empty void
+                // and then mislabel it as working photogrammetry (see CesiumMapProvider honesty note).
+                cesiumProvider.Initialise(GeoReference.Instance);
+                if (cesiumProvider.IsReady)
+                {
+                    SwitchToProvider(cesiumProvider);
+                }
+                else
+                {
+                    EventLog.Warning(LogSource.System,
+                        "Cesium tiles unavailable (" + cesiumProvider.StatusDetail +
+                        "). Staying on the offline environment.");
+                }
             }
             else if (offlineProvider != null)
             {

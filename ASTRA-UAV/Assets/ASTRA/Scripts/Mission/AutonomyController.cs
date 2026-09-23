@@ -55,8 +55,12 @@ namespace Astra.Mission
             _collisionPredictor = new CollisionPredictor();
             _avoidanceController = new AvoidanceController();
 
-            // Initialize 3D planning grid around origin (400m x 80m x 400m, 4m voxel size)
-            _planningGrid = new OccupancyGrid(new Vector3(-200, 0, -200), new Vector3Int(100, 25, 100), 4.0f);
+            // 3D planning grid. Spans X/Z in [-300, 300] m and Y in [0, 100] m at a 4 m voxel, i.e.
+            // 600 x 100 x 600 m. Sized to enclose the demo mission's furthest waypoint (Unity z=240):
+            // the previous 400 m grid stopped at 200 m, so goals beyond it fell outside the grid, the
+            // planner returned Failed, and the aircraft silently fell back to flying straight at the
+            // target with no planned path at all.
+            _planningGrid = new OccupancyGrid(new Vector3(-300, 0, -300), new Vector3Int(150, 25, 150), 4.0f);
         }
 
         private void Start()
@@ -242,6 +246,13 @@ namespace Astra.Mission
             SetStage(DecisionStage.Act);
             float t5 = Time.realtimeSinceStartup;
 
+            // Yaw the nose toward the direction of travel, capped to a gentle turn rate. Computed once
+            // so both the transit-advance and the normal cruise branch below use the same command.
+            float actTargetYaw = Quaternion.LookRotation(
+                desiredVelocity.sqrMagnitude > 0.1f ? desiredVelocity.normalized : transform.forward).eulerAngles.y;
+            float actYawDiff = Mathf.DeltaAngle(transform.eulerAngles.y, actTargetYaw);
+            float actYawRate = Mathf.Clamp(actYawDiff * 1.5f, -45f, 45f);
+
             if (chosenAction == DecisionAction.EmergencyBrake)
             {
                 flightController.CommandEmergencyBrake();
@@ -253,13 +264,28 @@ namespace Astra.Mission
                 chosenAction = DecisionAction.HoldPosition;
                 decisionReason = "Target arrived. Holding steady position.";
             }
+            else if (targetDist < 5.0f && missionManager != null &&
+                     missionManager.ActiveWaypointIndex >= 0 &&
+                     missionManager.ActiveWaypoint.Kind != WaypointKind.Target)
+            {
+                // Transit / corridor waypoint reached. This branch is the fix for a mission that used
+                // to stall on its very first waypoint: previously ONLY Target waypoints advanced the
+                // sequence, so a mission that (like both demo missions) began with a Transit waypoint
+                // climbed to it and then hovered there forever. A transit waypoint is a point to pass
+                // through, not stop at, so advance and keep flying toward the next one without
+                // hovering. A looser 5 m radius is used because transit points do not need the
+                // precision a target does. Invalidate the cached path so the planner re-plans to the
+                // new waypoint on the next cycle.
+                missionManager.AdvanceWaypoint();
+                _currentPath = null;
+                _currentPathIndex = 0;
+                chosenAction = DecisionAction.ContinueRoute;
+                decisionReason = "Transit waypoint passed. Proceeding to next waypoint.";
+                flightController.CommandVelocity(desiredVelocity, actYawRate);
+            }
             else
             {
-                float targetYaw = Quaternion.LookRotation(desiredVelocity.sqrMagnitude > 0.1f ? desiredVelocity.normalized : transform.forward).eulerAngles.y;
-                float yawDiff = Mathf.DeltaAngle(transform.eulerAngles.y, targetYaw);
-                float yawRate = Mathf.Clamp(yawDiff * 1.5f, -45f, 45f);
-
-                flightController.CommandVelocity(desiredVelocity, yawRate);
+                flightController.CommandVelocity(desiredVelocity, actYawRate);
             }
             timing.ActMs = (Time.realtimeSinceStartup - t5) * 1000.0f;
 

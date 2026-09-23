@@ -203,6 +203,21 @@ namespace Astra.Flight
         }
 
         /// <summary>
+        /// Bleeds the integral toward zero by the given factor in [0,1], where 0 removes it entirely
+        /// and 1 leaves it untouched. Used for saturation the PID cannot see on its own: when the
+        /// motor mixer scales an attitude demand down to protect another axis, the moment actually
+        /// delivered is smaller than the one this loop asked for, so the rate error persists and the
+        /// integrator keeps accumulating even though its own output never hit its clamp. That hidden
+        /// windup is what makes a long, hard stick hold overshoot and rotate when the stick is
+        /// released. Feeding the mixer's real saturation back in here is the same trick ArduPilot
+        /// uses when it drives its rate-loop anti-windup from AP_MotorsMatrix limit flags.
+        /// </summary>
+        public void BleedIntegral(float factor)
+        {
+            _integral *= Mathf.Clamp01(factor);
+        }
+
+        /// <summary>
         /// Clears accumulated state.
         ///
         /// MUST be called whenever the loop is disengaged and re-engaged - on arming, on a mode

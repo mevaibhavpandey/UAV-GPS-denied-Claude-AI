@@ -350,6 +350,19 @@ namespace Astra.Flight
 
             _body.interpolation = RigidbodyInterpolation.Interpolate;
 
+            // Rotational integration hardening. The airframe's inertia tensor is deliberately
+            // asymmetric (yaw inertia is about twice roll/pitch, as it physically is on a quad), and
+            // PhysX applies the gyroscopic term omega x (I omega) to such a body. Left unchecked, a
+            // large transient body rate - the kind a hard, sustained stick input can excite - lets
+            // that term pump energy between axes and the aircraft tumbles in a way no control input
+            // recovers from until it is disarmed. Two conservative guards, neither of which affects
+            // ordinary low-rate flight: cap the maximum body rate well above any commanded rate but
+            // below the runaway regime, and raise the solver iteration counts so the coupled
+            // rotational dynamics integrate stably instead of drifting per step.
+            _body.maxAngularVelocity = 8f;   // rad/s (~458 deg/s); commanded rates stay well under this
+            _body.solverIterations = 12;
+            _body.solverVelocityIterations = 4;
+
             for (int i = 0; i < motors.Length; i++)
             {
                 if (motors[i] != null)

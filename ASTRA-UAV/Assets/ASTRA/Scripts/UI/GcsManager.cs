@@ -86,20 +86,56 @@ namespace Astra.UI
             }
             else if (Input.GetKeyDown(KeyCode.F2))
             {
-                _fc?.SetControlSource(ControlSource.Autonomous);
                 AstraServices.Get<ISensorProvider>()?.SetGpsEnabled(true);
-                EventLog.Info(LogSource.FlightController, "Control mode switched to AUTONOMOUS GPS (F2).");
+                BeginAutonomousMission("AUTONOMOUS GPS (F2)");
             }
             else if (Input.GetKeyDown(KeyCode.F3))
             {
-                _fc?.SetControlSource(ControlSource.Autonomous);
                 AstraServices.Get<ISensorProvider>()?.SetGpsEnabled(false);
-                EventLog.Warning(LogSource.FlightController, "Control mode switched to AUTONOMOUS GPS-DENIED (F3).");
+                BeginAutonomousMission("AUTONOMOUS GPS-DENIED (F3)");
             }
             else if (Input.GetKeyDown(KeyCode.Escape))
             {
                 _mission?.Abort("Operator manual mission abort key (Esc)");
             }
+        }
+
+        /// <summary>
+        /// Enters autonomous flight for real: arms the aircraft, hands control to the autonomy
+        /// executive, starts the demo mission if one is not already running, and takes off if the
+        /// aircraft is still on the ground. Previously F2/F3 only flipped the control source and GPS
+        /// flag, so nothing actually flew - the autonomy loop had no armed motors, no mission, and a
+        /// grounded airframe to work with. This mirrors InteractiveTargetPicker.ExecuteFlyToTarget so
+        /// keyboard-driven and click-driven autonomy behave identically.
+        /// </summary>
+        private void BeginAutonomousMission(string label)
+        {
+            if (_fc == null)
+            {
+                EventLog.Warning(LogSource.FlightController,
+                    $"Cannot begin {label}: no flight controller present.");
+                return;
+            }
+
+            if (!_fc.IsArmed)
+            {
+                _fc.TryArm(out _);
+            }
+
+            _fc.SetControlSource(ControlSource.Autonomous);
+
+            if (_mission != null)
+            {
+                _mission.Start(out _);
+            }
+
+            if (!FlightStateInfo.IsAirborne(_fc.State))
+            {
+                _fc.CommandTakeoff(35f);
+            }
+
+            EventLog.Info(LogSource.FlightController,
+                $"Control mode switched to {label}. Armed, mission started, autonomy engaged.");
         }
 
         private void InitStyles()

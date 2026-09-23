@@ -10,25 +10,41 @@ using Astra.Environment;
 namespace Astra.Map
 {
     /// <summary>
-    /// Procedural 3D urban environment generator with extruded buildings, road networks, and obstacle colliders.
-    /// Provides zero-dependency offline terrain & height queries with high-aesthetic modern styling.
-    /// Implements IMapDataProvider.
+    /// Zero-dependency procedural environment used as the OFFLINE parachute when the Cesium /
+    /// Google Photorealistic 3D Tiles stream is unavailable (no network, no ion token, or exhausted
+    /// quota). See <see cref="CesiumMapProvider"/> for the photoreal headline path.
+    ///
+    /// HONESTY NOTE (do not remove)
+    /// ----------------------------
+    /// This is a STYLIZED, procedurally generated environment. It is deliberately laid out to evoke
+    /// the low-rise campus-in-a-green-suburb character of the BMSIT&M area of north Bangalore
+    /// (Avalahalli / Yelahanka), but it is NOT a survey-accurate reconstruction: the building
+    /// footprints, heights and road positions are synthetic, not measured. The only way to get the
+    /// real, measured geometry of Bangalore is the Cesium provider streaming Google's photogrammetry
+    /// (see MAP_SETUP.md). This class exists so a demo still runs when that stream cannot.
+    ///
+    /// What changed from the earlier version, and why: the previous generator produced a dark,
+    /// near-black "tactical" grid of identical glass cubes, which read as a video-game skyline rather
+    /// than a real place. This version uses a daytime palette, a realistic asphalt road grid with
+    /// lane markings and medians, mixed building typologies (concrete, terracotta, glass, low campus
+    /// blocks), and abundant tree canopy - Bangalore is the "Garden City" and its aerial view is
+    /// dominated by greenery. A distinct BMSIT&M campus cluster is placed near the launch pad.
     /// </summary>
     [DisallowMultipleComponent]
     public class OfflineMapProvider : MonoBehaviour, IMapDataProvider
     {
-        [Header("City Layout Parameters")]
-        [SerializeField] private int cityGridSize = 8;
-        [SerializeField] private float blockSizeM = 42.0f;
-        [SerializeField] private float streetWidthM = 16.0f;
-        [SerializeField] private float minBuildingHeightM = 12.0f;
-        [SerializeField] private float maxBuildingHeightM = 52.0f;
+        [Header("Site Layout")]
+        [SerializeField] private int cityGridSize = 9;
+        [SerializeField] private float blockSizeM = 44.0f;
+        [SerializeField] private float streetWidthM = 18.0f;
+        [SerializeField] private float minBuildingHeightM = 9.0f;
+        [SerializeField] private float maxBuildingHeightM = 46.0f;
         [SerializeField] private float usableRadiusM = 1000.0f;
+        [SerializeField] private int randomSeed = 42;
 
-        [Header("Visual Styling")]
-        [SerializeField] private Material buildingMaterial;
-        [SerializeField] private Material roadMaterial;
-        [SerializeField] private Material groundMaterial;
+        [Header("Greenery (Garden City character)")]
+        [SerializeField] private bool generateTrees = true;
+        [SerializeField] private int treesPerBlock = 3;
 
         private GameObject _environmentRoot;
         private readonly List<Bounds> _buildingBounds = new List<Bounds>();
@@ -37,7 +53,7 @@ namespace Astra.Map
         private string _statusDetail = "Idle";
         private SubsystemStatus _status = SubsystemStatus.Initialising;
 
-        public string Name => "ASTRA Procedural Offline City Provider";
+        public string Name => "ASTRA Offline City (stylized BMSIT&M / Bangalore)";
         public string ProviderId => "OFFLINE";
         public DataProvenance Provenance => DataProvenance.Simulated;
         public SubsystemStatus Status => _status;
@@ -56,42 +72,42 @@ namespace Astra.Map
 
         public void Initialise(GeoReference georeference)
         {
-            _statusDetail = "Generating procedural urban geometry & road network...";
+            _statusDetail = "Generating stylized BMSIT&M / Bangalore environment...";
             _loadProgress = 0.2f;
 
-            BuildProceduralCity();
+            BuildEnvironment();
 
             _isReady = true;
             _loadProgress = 1.0f;
             _status = SubsystemStatus.Ok;
-            _statusDetail = "Offline procedural city ready (Zero-dependency offline mode).";
+            _statusDetail = "Offline environment ready (stylized, zero-dependency).";
             StatusChanged?.Invoke(this);
 
-            EventLog.Info(LogSource.System, "Offline procedural 3D map environment generated successfully.");
+            EventLog.Info(LogSource.System,
+                "Offline environment generated (STYLIZED representation of BMSIT&M area - not survey-accurate).");
         }
 
         public void Shutdown()
         {
-            if (_environmentRoot != null)
-            {
-                Destroy(_environmentRoot);
-            }
+            if (_environmentRoot != null) Destroy(_environmentRoot);
             _isReady = false;
             _status = SubsystemStatus.Offline;
         }
 
         public void Tick(float deltaTime) { }
 
-        private Material GetOrCreateMat(string name, Color color, float smoothness, float metallic)
+        // ----------------------------------------------------------------------------------------
+        // Materials
+        // ----------------------------------------------------------------------------------------
+
+        private Material GetOrCreateMat(string matName, Color color, float smoothness, float metallic)
         {
             Shader lit = (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
                 ? (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
                 : (Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color"));
             if (lit == null) lit = Shader.Find("Standard") ?? Shader.Find("Diffuse") ?? Shader.Find("Unlit/Color");
 
-            Material mat = new Material(lit);
-            mat.name = name;
-            mat.color = color;
+            Material mat = new Material(lit) { name = matName, color = color };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
@@ -99,112 +115,227 @@ namespace Astra.Map
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             return mat;
         }
+        // BUILD_PLACEHOLDER
+        // ----------------------------------------------------------------------------------------
+        // Environment generation
+        // ----------------------------------------------------------------------------------------
 
-        private void BuildProceduralCity()
+        // Daytime "Garden City" palette - warm concrete, terracotta, glass and heavy greenery,
+        // rather than the earlier near-black tactical grays that read as a game skybox.
+        private Material _matGrass, _matAsphalt, _matLane, _matConcrete, _matTerracotta, _matGlass,
+                         _matCampus, _matPad, _matTrunk, _matCanopy, _matThreat;
+
+        private void BuildMaterials()
         {
-            if (_environmentRoot != null)
-            {
-                Destroy(_environmentRoot);
-            }
+            _matGrass      = GetOrCreateMat("Mat_Grass",      new Color(0.36f, 0.44f, 0.28f), 0.10f, 0.0f);
+            _matAsphalt    = GetOrCreateMat("Mat_Asphalt",    new Color(0.28f, 0.29f, 0.31f), 0.20f, 0.0f);
+            _matLane       = GetOrCreateMat("Mat_Lane",       new Color(0.85f, 0.83f, 0.72f), 0.10f, 0.0f);
+            _matConcrete   = GetOrCreateMat("Mat_Concrete",   new Color(0.80f, 0.79f, 0.75f), 0.15f, 0.0f);
+            _matTerracotta = GetOrCreateMat("Mat_Terracotta", new Color(0.68f, 0.42f, 0.30f), 0.15f, 0.0f);
+            _matGlass      = GetOrCreateMat("Mat_Glass",      new Color(0.52f, 0.66f, 0.72f), 0.85f, 0.55f);
+            _matCampus     = GetOrCreateMat("Mat_Campus",     new Color(0.86f, 0.74f, 0.52f), 0.15f, 0.0f);
+            _matPad        = GetOrCreateMat("Mat_Pad",        new Color(0.20f, 0.55f, 0.38f), 0.35f, 0.0f);
+            _matTrunk      = GetOrCreateMat("Mat_Trunk",      new Color(0.32f, 0.24f, 0.16f), 0.10f, 0.0f);
+            _matCanopy     = GetOrCreateMat("Mat_Canopy",     new Color(0.24f, 0.40f, 0.20f), 0.05f, 0.0f);
+            _matThreat     = GetOrCreateMat("Mat_Threat",     new Color(0.95f, 0.22f, 0.18f), 0.60f, 0.3f);
+        }
 
-            _environmentRoot = new GameObject("ASTRA_Offline_City");
+        private void BuildEnvironment()
+        {
+            if (_environmentRoot != null) Destroy(_environmentRoot);
+            _environmentRoot = new GameObject("ASTRA_Offline_Environment");
             _environmentRoot.transform.SetParent(transform);
             _buildingBounds.Clear();
+            BuildMaterials();
 
-            // Tactical Materials
-            Material groundMat = GetOrCreateMat("Mat_Ground", new Color(0.10f, 0.12f, 0.14f), 0.15f, 0.05f);
-            Material asphaltMat = GetOrCreateMat("Mat_Asphalt", new Color(0.14f, 0.16f, 0.18f), 0.25f, 0.05f);
-            Material bldgDarkMat = GetOrCreateMat("Mat_BldgDark", new Color(0.18f, 0.20f, 0.23f), 0.40f, 0.20f);
-            Material bldgGlassMat = GetOrCreateMat("Mat_BldgGlass", new Color(0.12f, 0.22f, 0.30f), 0.85f, 0.70f);
-            Material helipadMat = GetOrCreateMat("Mat_Helipad", new Color(0.14f, 0.50f, 0.35f), 0.50f, 0.10f);
-
-            // 1. Ground Base Terrain
+            // 1. Grassy ground base (Garden City green rather than tactical black).
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground_Terrain";
             ground.tag = "Terrain";
             ground.transform.SetParent(_environmentRoot.transform);
-            ground.transform.position = Vector3.zero;
             ground.transform.localScale = new Vector3(usableRadiusM * 0.2f, 1f, usableRadiusM * 0.2f);
-            ground.GetComponent<Renderer>().sharedMaterial = groundMat;
+            ground.GetComponent<Renderer>().sharedMaterial = _matGrass;
 
-            // 2. City Grid & Buildings
-            float totalBlockStep = blockSizeM + streetWidthM;
-            float startOffset = -(cityGridSize * 0.5f) * totalBlockStep;
+            BuildUrbanGrid();
+            BuildCampusCluster();
+            BuildDynamicThreat();
+        }
+        // GRID_PLACEHOLDER
+        private void BuildUrbanGrid()
+        {
+            float step = blockSizeM + streetWidthM;
+            float startOffset = -(cityGridSize * 0.5f) * step;
+            System.Random prng = new System.Random(randomSeed);
 
-            System.Random prng = new System.Random(42); // deterministic seed
+            // Asphalt road strips along every grid line (both axes) with a dashed centre lane.
+            for (int i = 0; i <= cityGridSize; i++)
+            {
+                float p = startOffset + i * step - streetWidthM * 0.5f;
+                MakeRoad(new Vector3(0f, 0.02f, p + streetWidthM * 0.5f),
+                         new Vector3(cityGridSize * step + streetWidthM, 1f, streetWidthM), true);
+                MakeRoad(new Vector3(p + streetWidthM * 0.5f, 0.02f, 0f),
+                         new Vector3(streetWidthM, 1f, cityGridSize * step + streetWidthM), false);
+            }
 
             for (int gx = 0; gx < cityGridSize; gx++)
             {
                 for (int gz = 0; gz < cityGridSize; gz++)
                 {
-                    float bx = startOffset + gx * totalBlockStep;
-                    float bz = startOffset + gz * totalBlockStep;
+                    float bx = startOffset + gx * step + streetWidthM * 0.5f;
+                    float bz = startOffset + gz * step + streetWidthM * 0.5f;
 
-                    // Leave launch pad area (origin 0,0) clear for takeoff / landing
+                    // Keep the campus / launch-pad core (centre 3x3) clear; campus is placed there.
                     if (Mathf.Abs(gx - cityGridSize / 2) <= 1 && Mathf.Abs(gz - cityGridSize / 2) <= 1)
-                    {
                         continue;
-                    }
 
-                    // Road Block Plate (Asphalt)
-                    GameObject roadBlock = GameObject.CreatePrimitive(PrimitiveType.Plane);
-                    roadBlock.name = $"Road_{gx}_{gz}";
-                    roadBlock.tag = "Terrain";
-                    roadBlock.transform.SetParent(_environmentRoot.transform);
-                    roadBlock.transform.position = new Vector3(bx, 0.01f, bz);
-                    roadBlock.transform.localScale = new Vector3(totalBlockStep * 0.1f, 1f, totalBlockStep * 0.1f);
-                    roadBlock.GetComponent<Renderer>().sharedMaterial = asphaltMat;
-
-                    // Generate 1-3 buildings per block
-                    int subBuildings = prng.Next(1, 3);
-                    float subW = blockSizeM * 0.44f;
-                    float subL = blockSizeM * 0.44f;
-
+                    int subBuildings = prng.Next(1, 4);
                     for (int sb = 0; sb < subBuildings; sb++)
                     {
-                        float offsetX = (sb % 2 == 0 ? -1 : 1) * (subW * 0.52f);
-                        float offsetZ = (sb / 2 == 0 ? -1 : 1) * (subL * 0.52f);
+                        float footprint = blockSizeM * (0.28f + (float)prng.NextDouble() * 0.16f);
+                        float ox = (float)(prng.NextDouble() - 0.5) * (blockSizeM - footprint);
+                        float oz = (float)(prng.NextDouble() - 0.5) * (blockSizeM - footprint);
+                        float h = (float)(minBuildingHeightM + prng.NextDouble() * (maxBuildingHeightM - minBuildingHeightM));
 
-                        float buildingHeight = (float)(minBuildingHeightM + prng.NextDouble() * (maxBuildingHeightM - minBuildingHeightM));
-
-                        GameObject bldg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        bldg.name = $"Building_{gx}_{gz}_{sb}";
-                        bldg.tag = "Building";
-                        bldg.transform.SetParent(_environmentRoot.transform);
-                        bldg.transform.position = new Vector3(bx + offsetX, buildingHeight * 0.5f, bz + offsetZ);
-                        bldg.transform.localScale = new Vector3(subW, buildingHeight, subL);
-
-                        Material mat = (sb % 2 == 0) ? bldgDarkMat : bldgGlassMat;
-                        bldg.GetComponent<Renderer>().sharedMaterial = mat;
-
-                        _buildingBounds.Add(new Bounds(bldg.transform.position, bldg.transform.localScale));
-
-                        // Add rooftop helipad on selected tall buildings
-                        if (buildingHeight > 30.0f && (gx + gz) % 3 == 0)
-                        {
-                            GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                            pad.name = $"Rooftop_Helipad_{gx}_{gz}";
-                            pad.tag = "Terrain";
-                            pad.transform.SetParent(bldg.transform);
-                            pad.transform.localPosition = new Vector3(0f, 0.505f, 0f);
-                            pad.transform.localScale = new Vector3(0.75f, 0.01f, 0.75f);
-                            pad.GetComponent<Renderer>().sharedMaterial = helipadMat;
-                        }
+                        // Typology by height: low terracotta homes, mid concrete, tall glass.
+                        Material mat = h < 16f ? _matTerracotta : (h < 32f ? _matConcrete : _matGlass);
+                        MakeBuilding(new Vector3(bx + ox, 0f, bz + oz), footprint, h, footprint * 0.9f, mat, prng);
                     }
+
+                    if (generateTrees) ScatterTrees(bx, bz, prng);
                 }
             }
-
-            // 3. Dynamic Obstacle Patrol Entity (Cross-corridor moving threat)
-            GameObject obstacleDrone = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            obstacleDrone.name = "Dynamic_Threat_Patrol_1";
-            obstacleDrone.tag = "Obstacle";
-            obstacleDrone.transform.SetParent(_environmentRoot.transform);
-            obstacleDrone.transform.position = new Vector3(-80f, 35f, 160f);
-            obstacleDrone.transform.localScale = new Vector3(3.5f, 2.0f, 3.5f);
-            Material threatMat = GetOrCreateMat("Mat_Threat", new Color(0.95f, 0.22f, 0.18f), 0.75f, 0.5f);
-            obstacleDrone.GetComponent<Renderer>().sharedMaterial = threatMat;
-            obstacleDrone.AddComponent<DynamicObstaclePatrol>();
         }
+        // MAKERS_PLACEHOLDER
+        private void MakeRoad(Vector3 center, Vector3 size, bool alongX)
+        {
+            GameObject road = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            road.name = "Road";
+            road.tag = "Terrain";
+            road.transform.SetParent(_environmentRoot.transform);
+            road.transform.position = new Vector3(center.x, 0.02f, center.z);
+            road.transform.localScale = new Vector3(size.x, 0.04f, size.z);
+            road.GetComponent<Renderer>().sharedMaterial = _matAsphalt;
+
+            // Dashed centre lane marking.
+            float length = alongX ? size.x : size.z;
+            int dashes = Mathf.Max(1, (int)(length / 8f));
+            for (int d = 0; d < dashes; d++)
+            {
+                float t = -length * 0.5f + (d + 0.5f) * (length / dashes);
+                GameObject lane = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                lane.name = "Lane";
+                lane.transform.SetParent(road.transform);
+                Destroy(lane.GetComponent<Collider>());
+                lane.transform.position = alongX
+                    ? new Vector3(center.x + t, 0.05f, center.z)
+                    : new Vector3(center.x, 0.05f, center.z + t);
+                lane.transform.localScale = alongX
+                    ? new Vector3(3.2f, 0.02f, 0.35f)
+                    : new Vector3(0.35f, 0.02f, 3.2f);
+                lane.GetComponent<Renderer>().sharedMaterial = _matLane;
+            }
+        }
+
+        private void MakeBuilding(Vector3 basePos, float w, float h, float l, Material mat, System.Random prng)
+        {
+            GameObject bldg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bldg.name = "Building";
+            bldg.tag = "Building";
+            bldg.transform.SetParent(_environmentRoot.transform);
+            bldg.transform.position = new Vector3(basePos.x, h * 0.5f, basePos.z);
+            bldg.transform.localScale = new Vector3(w, h, l);
+            bldg.GetComponent<Renderer>().sharedMaterial = mat;
+            _buildingBounds.Add(new Bounds(bldg.transform.position, bldg.transform.localScale));
+
+            // Rooftop parapet / water tank detail so towers are not featureless boxes.
+            if (h > 20f)
+            {
+                GameObject tank = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                tank.name = "Rooftop_Detail";
+                tank.transform.SetParent(bldg.transform);
+                Destroy(tank.GetComponent<Collider>());
+                tank.transform.localPosition = new Vector3(0.2f, 0.55f, 0.2f);
+                tank.transform.localScale = new Vector3(0.18f, 0.06f, 0.18f);
+                tank.GetComponent<Renderer>().sharedMaterial = _matConcrete;
+            }
+        }
+
+        private void ScatterTrees(float bx, float bz, System.Random prng)
+        {
+            for (int t = 0; t < treesPerBlock; t++)
+            {
+                float tx = bx + (float)(prng.NextDouble() - 0.5) * blockSizeM;
+                float tz = bz + (float)(prng.NextDouble() - 0.5) * blockSizeM;
+                float th = 4.5f + (float)prng.NextDouble() * 3.5f;
+                MakeTree(new Vector3(tx, 0f, tz), th);
+            }
+        }
+
+        private void MakeTree(Vector3 basePos, float height)
+        {
+            GameObject trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.name = "Tree_Trunk";
+            trunk.tag = "Terrain";
+            trunk.transform.SetParent(_environmentRoot.transform);
+            trunk.transform.position = new Vector3(basePos.x, height * 0.35f, basePos.z);
+            trunk.transform.localScale = new Vector3(0.4f, height * 0.35f, 0.4f);
+            trunk.GetComponent<Renderer>().sharedMaterial = _matTrunk;
+
+            GameObject canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            canopy.name = "Tree_Canopy";
+            canopy.transform.SetParent(trunk.transform);
+            canopy.transform.position = new Vector3(basePos.x, height * 0.85f, basePos.z);
+            canopy.transform.localScale = new Vector3(height * 0.7f, height * 0.6f, height * 0.7f);
+            canopy.GetComponent<Renderer>().sharedMaterial = _matCanopy;
+        }
+        // CAMPUS_PLACEHOLDER
+        /// <summary>
+        /// Places a distinct low-rise academic cluster around the origin to stand in for the
+        /// BMSIT&M campus, with a green landing pad marker at the exact launch point. Layout is
+        /// evocative, not surveyed (see honesty note at the top of the file).
+        /// </summary>
+        private void BuildCampusCluster()
+        {
+            // Landing pad marker at origin (kept clear of buildings).
+            GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pad.name = "Launch_Pad_BMSIT";
+            pad.tag = "Terrain";
+            pad.transform.SetParent(_environmentRoot.transform);
+            pad.transform.position = new Vector3(0f, 0.03f, 0f);
+            pad.transform.localScale = new Vector3(9f, 0.03f, 9f);
+            pad.GetComponent<Renderer>().sharedMaterial = _matPad;
+
+            // Four ochre academic blocks framing a central quad, offset from the pad.
+            Vector3[] blocks =
+            {
+                new Vector3(-34f, 0f, 30f), new Vector3(34f, 0f, 30f),
+                new Vector3(-34f, 0f, -30f), new Vector3(34f, 0f, -30f)
+            };
+            for (int i = 0; i < blocks.Length; i++)
+            {
+                float h = 14f + i * 2f;
+                MakeBuilding(blocks[i], 26f, h, 16f, _matCampus, null);
+            }
+
+            // A taller central administrative / library block set back from the quad.
+            MakeBuilding(new Vector3(0f, 0f, 62f), 30f, 24f, 20f, _matConcrete, null);
+        }
+
+        private void BuildDynamicThreat()
+        {
+            GameObject threat = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            threat.name = "Dynamic_Threat_Patrol_1";
+            threat.tag = "Obstacle";
+            threat.transform.SetParent(_environmentRoot.transform);
+            threat.transform.position = new Vector3(-80f, 35f, 160f);
+            threat.transform.localScale = new Vector3(3.5f, 2.0f, 3.5f);
+            threat.GetComponent<Renderer>().sharedMaterial = _matThreat;
+            threat.AddComponent<DynamicObstaclePatrol>();
+        }
+
+        // ----------------------------------------------------------------------------------------
+        // Height sampling
+        // ----------------------------------------------------------------------------------------
 
         public bool SampleTerrainHeight(Vector2 worldXZ, out float worldY)
         {
