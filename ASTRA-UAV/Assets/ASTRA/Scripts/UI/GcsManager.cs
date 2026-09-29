@@ -78,6 +78,10 @@ namespace Astra.UI
 
         private void Update()
         {
+            // While the pre-flight Mission Setup screen is up, the GCS stays dormant so its
+            // keyboard shortcuts cannot arm or fly the aircraft before the run is configured.
+            if (Astra.Mission.MissionSetupManager.IsSetupActive) return;
+
             // Keyboard shortcut mode handlers
             if (Input.GetKeyDown(KeyCode.F1))
             {
@@ -199,6 +203,8 @@ namespace Astra.UI
         private void OnGUI()
         {
             if (!showGcsUi) return;
+            // Suppress the operational UI until the operator commits the pre-flight configuration.
+            if (Astra.Mission.MissionSetupManager.IsSetupActive) return;
             InitStyles();
 
             DrawTopStatusBar();
