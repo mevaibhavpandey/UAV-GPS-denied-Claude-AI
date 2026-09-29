@@ -94,7 +94,8 @@ Legend: ✅ DONE · 🟡 PARTIAL · ❌ MISSING. Evidence is the file that satis
 - **Startup Mission Setup screen/flow (Sec 3–8, 73):** the app boots straight into the GCS. There is
   no pre-flight setup scene/panel to pick mission type, map, home, target, nav mode before flying.
   **This is the most visible gap vs the spec's intended UX.**
-- **Theta* planner (Sec 26):** spec asks A*/Theta*/D* Lite; Theta* is absent.
+- **Theta* planner (Sec 26):** ✅ addressed by D4 — `Navigation/ThetaStarPlanner` registered with the
+  other three planners in `BenchmarkRunner`. (Verify with an Editor benchmark run.)
 - **Thin-obstacle / wire representation + honest det-limit demo (Sec 24):** none.
 - **`AirframeBuilder.cs` / `SceneGenerator.cs`:** referenced as COMPLETE in the older
   `PROJECT_RECOVERY_STATUS.md` but **do not exist in the tree** — that doc overstates. The drone
@@ -129,8 +130,10 @@ scene/prefab surgery (which needs the Unity Editor).
 - **D3. Configurable LiDAR sensor (Sec 13–15, 54).** New `Perception/LidarSensor` implementing the
   raycast scan with range/FOV/H+V res/scan-rate/noise/dropout; expose stats to the GCS LiDAR panel;
   keep `RaycastObstacleDetector` as consumer. Additive, low risk.
-- **D4. Theta* planner (Sec 26).** New `Navigation/ThetaStarPlanner : IPathPlanner` with line-of-sight
-  parent updates over `OccupancyGrid`. Additive; register alongside existing planners.
+- **D4. Theta* planner (Sec 26).** ✅ **DONE (structural; verify in Unity)** — new
+  `Navigation/ThetaStarPlanner.cs : IPathPlanner` with line-of-sight parent shortcutting over the
+  `OccupancyGrid`; registered alongside D* Lite / A* / Dijkstra in `BenchmarkRunner`. See top
+  change-log entry. Remaining: run the benchmark in the Editor to compare the four planners.
 - **D5. Threat/no-go zones + planner cost layer + user placement (Sec 40–43).** `Navigation`/`Mission`
   zone model (sphere/polygon, severity), planner cost penalty, optional GCS placement tool, hidden
   "SIMULATED MISSION CONSTRAINT" flag. Extends the radius geofence already in `FailsafeManager`.
@@ -156,6 +159,27 @@ scene/prefab surgery (which needs the Unity Editor).
 ## E. Change log (newest first)
 
 > Append a dated entry after every change: what changed, which files, validator result, commit.
+
+### 2026-09-30 — D4: Theta* any-angle planner
+- **New `Navigation/ThetaStarPlanner.cs`** — a fourth `IPathPlanner` (`Name = "Theta* (Any-Angle)"`,
+  `AlgorithmId = "THETASTAR"`, `SupportsIncrementalReplan = false`, `Replan` re-searches via `Plan`).
+  Modeled on `AStarPlanner` (same `Node`/linear-scan `SimplePriorityQueue`/grid-usage pattern) with
+  the one Theta* addition: when relaxing a successor, if the successor has line-of-sight to the
+  current node's PARENT, its parent is set to that grandparent with straight-line cost (Path 2);
+  otherwise the standard A* relaxation through the current node applies (Path 1). LoS is a
+  half-cell-resolution supercover sample along the segment that rejects the moment any cell is
+  out-of-bounds or `!IsTraversable` (grid already reports margin-inflated "safe"). Result: shorter,
+  less grid-locked routes than A* — fewer needless heading changes for the UAV. Added matching
+  `.cs.meta` (guid 4e91d7c2a8b3465fb1f0e6d5c93a72b8).
+- **`Diagnostics/BenchmarkRunner.cs`** — registered `new ThetaStarPlanner()` in the planner array
+  alongside D* Lite / A* / Dijkstra so the benchmark compares path length + node expansions across
+  all four. No other behaviour touched (Sec 53).
+- **Honesty:** Theta* re-searches from scratch and reports `WasIncremental = false`, so benchmarks
+  against the incremental D* Lite stay meaningful; the fixed `MinimumClearanceM`/altitude fields
+  mirror A*'s placeholders and are not per-run measurements.
+- Validator: **0 errors / 61 files**. Commit: pending in this entry. **Editor build + a benchmark
+  run comparing the four planners must be verified in Unity** — structural validation does not run
+  the search.
 
 ### 2026-09-30 — D2: Mission types + per-type behaviours
 - **`Contracts/IMissionProvider.cs`** — added a `MissionType` enum (PointToPoint, Reconnaissance,

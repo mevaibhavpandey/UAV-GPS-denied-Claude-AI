@@ -41,7 +41,8 @@ namespace Astra.Diagnostics
             {
                 new MargasoochiDStarLite(),
                 new AStarPlanner(),
-                new DijkstraPlanner()
+                new DijkstraPlanner(),
+                new ThetaStarPlanner()
             };
 
             foreach (var planner in planners)
