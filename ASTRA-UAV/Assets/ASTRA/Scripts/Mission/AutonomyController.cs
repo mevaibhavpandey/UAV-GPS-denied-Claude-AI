@@ -47,6 +47,10 @@ namespace Astra.Mission
         private bool _dwelling = false;
         private float _dwellElapsed = 0f;
 
+        // Tracks which ZoneManager.Version has been baked into the planning grid, so threat/no-go
+        // zones (Sec 40-43) are stamped in once per change rather than every planning cycle.
+        private int _zoneVersionApplied = -1;
+
         public DecisionRecord LastDecision => _lastDecision;
         public DecisionCycleTiming LastTiming => _lastTiming;
         public DecisionStage CurrentStage => _currentStage;
@@ -162,6 +166,16 @@ namespace Astra.Mission
 
             if (_currentPath == null || _currentPath.Count == 0 || _currentPathIndex >= _currentPath.Count)
             {
+                // Bake any threat/no-go zones into the grid before planning (Sec 40-43). Only when
+                // the zone set has changed, and only onto our OccupancyGrid.
+                Astra.Navigation.ZoneManager zones = AstraServices.Get<Astra.Navigation.ZoneManager>();
+                if (zones != null && zones.Version != _zoneVersionApplied &&
+                    _planningGrid is OccupancyGrid og)
+                {
+                    zones.ApplyToGrid(og);
+                    _zoneVersionApplied = zones.Version;
+                }
+
                 PathPlanRequest req = PathPlanRequest.Default(uavPos, targetDestination);
                 PathPlanResult result = _planner.Plan(req, _planningGrid);
 

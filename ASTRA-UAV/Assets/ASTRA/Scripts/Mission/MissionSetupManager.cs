@@ -295,6 +295,10 @@ namespace Astra.Mission
                 return;
             }
 
+            // Apply the global scenario seed so this run's simulated randomness (sensor noise,
+            // dropouts) is reproducible and comparable in the experiment panel (Sec 21, 61).
+            ScenarioSeed.Apply();
+
             GeoCoordinate home = new GeoCoordinate(hLat, hLon, hAlt);
             GeoCoordinate target = new GeoCoordinate(tLat, tLon, tAlt);
 

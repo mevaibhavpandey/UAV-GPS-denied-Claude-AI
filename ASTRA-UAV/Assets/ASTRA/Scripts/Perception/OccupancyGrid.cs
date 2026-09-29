@@ -20,6 +20,15 @@ namespace Astra.Perception
         private readonly float[] _terrainHeight;
         private int _version;
 
+        /// <summary>
+        /// Optional additive cost layer (ASTRA spec Sec 40-43). When set, its return value is
+        /// MULTIPLIED into the base traversal cost, letting an external system (the ZoneManager)
+        /// bias planning away from soft threat/advisory zones WITHOUT this class needing to know
+        /// anything about zones. Returns 1 for "no extra cost". Left null by default so behaviour
+        /// is unchanged unless a zone layer opts in (Sec 53).
+        /// </summary>
+        public System.Func<Vector3Int, float> ExternalCostMultiplier;
+
         private static readonly Vector3Int[] NeighbourOffsets26 = CreateNeighbourOffsets();
 
         public float CellSizeM => _cellSize;
@@ -92,10 +101,18 @@ namespace Astra.Perception
         {
             if (!IsInBounds(cell)) return float.PositiveInfinity;
             float clearance = _clearanceField[GetIndex(cell)];
-            if (clearance < 2.0f) return 10.0f;
-            if (clearance < 5.0f) return 3.0f;
-            if (clearance < 8.0f) return 1.5f;
-            return 1.0f;
+            float baseCost;
+            if (clearance < 2.0f) baseCost = 10.0f;
+            else if (clearance < 5.0f) baseCost = 3.0f;
+            else if (clearance < 8.0f) baseCost = 1.5f;
+            else baseCost = 1.0f;
+
+            if (ExternalCostMultiplier != null)
+            {
+                float m = ExternalCostMultiplier(cell);
+                if (m > 1f) baseCost *= m;
+            }
+            return baseCost;
         }
 
         public float ClearanceAt(Vector3Int cell)

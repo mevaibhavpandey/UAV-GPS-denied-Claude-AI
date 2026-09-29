@@ -127,27 +127,36 @@ scene/prefab surgery (which needs the Unity Editor).
   `MissionManager`/`AutonomyController`. Feeds D1.
 
 ### P1 — closes clear spec gaps, mostly additive C#
-- **D3. Configurable LiDAR sensor (Sec 13–15, 54).** New `Perception/LidarSensor` implementing the
-  raycast scan with range/FOV/H+V res/scan-rate/noise/dropout; expose stats to the GCS LiDAR panel;
-  keep `RaycastObstacleDetector` as consumer. Additive, low risk.
+- **D3. Configurable LiDAR sensor (Sec 13–15, 54).** ✅ **DONE (structural; verify in Unity)** — new
+  `Perception/LidarSensor` implementing the raycast scan with range/FOV/H+V res/scan-rate/noise/dropout;
+  exposes stats to the F10 sensor panel; keeps `RaycastObstacleDetector` as consumer. Additive, low risk.
 - **D4. Theta* planner (Sec 26).** ✅ **DONE (structural; verify in Unity)** — new
   `Navigation/ThetaStarPlanner.cs : IPathPlanner` with line-of-sight parent shortcutting over the
   `OccupancyGrid`; registered alongside D* Lite / A* / Dijkstra in `BenchmarkRunner`. See top
   change-log entry. Remaining: run the benchmark in the Editor to compare the four planners.
-- **D5. Threat/no-go zones + planner cost layer + user placement (Sec 40–43).** `Navigation`/`Mission`
-  zone model (sphere/polygon, severity), planner cost penalty, optional GCS placement tool, hidden
-  "SIMULATED MISSION CONSTRAINT" flag. Extends the radius geofence already in `FailsafeManager`.
-- **D6. SensorFusionManager (Sec 16).** Named aggregator over LiDAR+camera+IMU+GPS+compass+baro that
-  the autonomy/localization stack reads, making the fusion explicit for the panel/docs.
+- **D5. Threat/no-go zones + planner cost layer + user placement (Sec 40–43).** ✅ **DONE (structural;
+  verify in Unity)** — `Navigation/MissionZone` + `ZoneManager`, `OccupancyGrid.ExternalCostMultiplier`
+  cost layer, `AutonomyController` per-version bake, hidden "SIMULATED MISSION CONSTRAINT" flag.
+  Extends the radius geofence already in `FailsafeManager`.
+- **D6. SensorFusionManager (Sec 16).** ✅ **DONE (structural; verify in Unity)** — `Sensors/SensorFusionManager`
+  status aggregator over LiDAR+camera+IMU+GPS+compass+baro (pass-through pose, NOT a re-fusion), surfaced
+  in the F10 sensor panel.
 
 ### P2 — completeness & polish
-- **D7. Onboard payload camera (Sec 12)** with FOV/noise/frustum + RGB/stereo/depth/thermal arch.
-- **D8. Thin-obstacle / wire model + honest detection-limit demo (Sec 24).**
-- **D9. Research/experiment panel + global scenario seed + compare-runs (Sec 60–61, 21).**
-- **D10. Documentation set (Sec 67)** — add/rename the missing named docs; reconcile the overstated
-  `PROJECT_RECOVERY_STATUS.md` (it lists `AirframeBuilder`/`SceneGenerator` which don't exist).
+- **D7. Onboard payload camera (Sec 12)** ✅ **DONE (structural; verify in Unity)** — `Perception/PayloadCamera`
+  with FOV/noise/frustum + RGB/stereo/depth/thermal architecture; models geometry/coverage only, no image formation.
+- **D8. Thin-obstacle / wire model + honest detection-limit demo (Sec 24).** ✅ **DONE (structural; verify in Unity)** —
+  `Perception/ThinObstacleDemo` spawns thin wires and reports the honest geometric guaranteed-detection range.
+- **D9. Research/experiment panel + global scenario seed + compare-runs (Sec 60–61, 21).** ✅ **DONE (structural;
+  verify in Unity)** — `Core/ScenarioSeed` + `Diagnostics/ExperimentPanel` (F11): reproducible seed, LiDAR
+  noise/dropout sliders, planner benchmark with last-8-runs comparison.
+- **D10. Documentation set (Sec 67)** ✅ **DONE** — added the named subsystem docs under
+  `Documentation/Subsystems/` (Mission_System, Map_System, LiDAR_System, Sensor_Fusion, Path_Planning,
+  Obstacle_Avoidance, GPS_Denied, Threat_Zone_Simulation, Digital_Twin, Testing) and reconciled the
+  overstated `PROJECT_RECOVERY_STATUS.md` (removed the nonexistent `AirframeBuilder`/`SceneGenerator`).
 - **D11. Verify digital-twin hierarchy in the Unity scene/prefab** (frame/4×arm-motor-prop/battery/
-  FC/compute/GPS/camera/LiDAR/ESC/gear). Confirm or add a builder. Needs the Editor.
+  FC/compute/GPS/camera/LiDAR/ESC/gear). ⚠️ **EDITOR-ONLY — cannot be done in the headless sandbox.**
+  Flagged in `Subsystems/Digital_Twin.md`: open the prefab and walk the hierarchy against the spec.
 
 ### Cross-cutting rules for every item
 - Reuse existing contracts/services; register new providers via `AstraServices`.
@@ -159,6 +168,70 @@ scene/prefab surgery (which needs the Unity Editor).
 ## E. Change log (newest first)
 
 > Append a dated entry after every change: what changed, which files, validator result, commit.
+
+### 2026-09-30 — D3, D5, D6, D7, D8, D9, D10 (batch: "do everything")
+
+**D3 — Configurable LiDAR sensor.** New `Perception/LidarSensor.cs` (+ meta
+b7e2f4a1c8d34965a2b1e0f6d7c93a5e): raycast beam grid with configurable range/FOV/H+V resolution/
+scan-rate and an imperfection model (Box–Muller Gaussian range noise, per-beam dropout, lower blind
+cone). Live stats (`LastPointCount`/`LastBeamsCast`/`LastReturnRatePercent`/`NearestReturnM`/
+`LastScanDurationMs`) + `PointCloud`. Self-installs on the `FlightControlSystem` GameObject, registers
+`AstraServices.Register<LidarSensor>(this)`, `DataProvenance.Simulated`. `RaycastObstacleDetector`
+kept as the consumer (Sec 53).
+
+**D5 — Threat/no-go zones + cost layer.** New `Navigation/MissionZone.cs`
+(+ meta f6d3b8a5c4e29071a7b1f2c9e0d84a61) and `Navigation/ZoneManager.cs`
+(+ meta a7e4c9b6d5f30182b8c2f3d0e1f95b72). `OccupancyGrid` gained a null-default
+`ExternalCostMultiplier` delegate (behaviour unchanged unless opted in); `TraversalCost` multiplies
+its clearance base cost by it. `ZoneManager.ApplyToGrid` wires the delegate (SoftAvoid 8×, Advisory
+2×) and stamps NoGo cells solid. `AutonomyController` bakes zones once per `Version` change in PLAN
+(`_zoneVersionApplied`). Hidden zones logged `[SIMULATED MISSION CONSTRAINT]`. Extends, not replaces,
+the `FailsafeManager` geofence.
+
+**D6 — SensorFusionManager.** New `Sensors/SensorFusionManager.cs`
+(+ meta c3a9e5f2b1d7468fa4c2e8b0d6f19a73) in namespace `Astra.Sensors`, plus `Sensors.meta` folder
+meta (d4b1f6a3c2e84790b5d3f9c1e7a2408b). HONEST **status aggregator**, not an estimator: per-channel
+`SensorChannel { Name, Contributing, Status, Provenance, Detail }` for IMU/GNSS/Baro/Mag/LiDAR/Camera;
+`FusedPose` is a pass-through of the active `ILocalizationProvider`. New `UI/SensorPanel.cs`
+(+ meta e5c2a7f4b3d9481fa6e0c1b8d2f74a90), F10 read-only overlay, gated by `MissionSetupManager.IsSetupActive`.
+
+**D7 — Onboard payload camera.** New `Perception/PayloadCamera.cs`
+(+ meta b8f5d0c7e6a41293b9c3f4e1d2a05b73): `CameraMode { Rgb, Stereo, Depth, Thermal }`, HFOV/aspect/
+pixels/near/far/noise, computed `VerticalFovDeg`, per-mode `UsableRangeM`, `IsInFrustum(world,out range)`
+and `ObstaclesInFrustum`/`NearestInFrustumM`. Self-installs, registers. HONEST: models geometry/coverage
+only — no image formation.
+
+**D8 — Thin-obstacle / wire honesty demo.** New `Perception/ThinObstacleDemo.cs`
+(+ meta c9a6e1d8f7b52304c0d4a5f2e3b16c84): spawns 0.02 m `Wire_n` cylinders and reports the honest
+guaranteed-detection range = wireDiameter / beamSpacing (from the LiDAR angular resolution), warning
+that beyond it a wire can slip between beams. A deliberate demonstration of a real sensing limit.
+
+**D9 — Research/experiment panel + scenario seed.** New `Core/ScenarioSeed.cs`
+(+ meta d0b7f2e9c8a63415d1e5b6f3a4c07d95): reproducible simulation randomness (default 20260930),
+`Apply()`/`SetSeed()`/`NewSeed()`. New `Diagnostics/ExperimentPanel.cs`
+(+ meta e1c8a3f0d9b74526e2f6c7a4b5d18e06), F11 overlay: seed Reuse/New, LiDAR noise σ + dropout
+sliders bound to the registered `LidarSensor`, planner benchmark button (adds `BenchmarkRunner` on
+demand) keeping the last 8 runs for comparison; gated by `MissionSetupManager.IsSetupActive`.
+`Mission/MissionSetupManager.cs` now calls `ScenarioSeed.Apply()` in `TryStart` so each run is
+reproducible.
+
+**D10 — Documentation set (Sec 67).** Added named subsystem docs under `Documentation/Subsystems/`
+(README + Mission_System, Map_System, LiDAR_System, Sensor_Fusion, Path_Planning, Obstacle_Avoidance,
+GPS_Denied, Threat_Zone_Simulation, Digital_Twin, Testing). Reconciled `PROJECT_RECOVERY_STATUS.md`:
+removed the nonexistent `AirframeBuilder.cs` / `SceneGenerator.cs` references and pointed Layer 2 at
+the real `Drone/*` components with a D11 Editor-verification note.
+
+**D11 — Digital-twin hierarchy:** ⚠️ EDITOR-ONLY, not attempted in the sandbox (no Unity Editor).
+Documented as the remaining verification step in `Subsystems/Digital_Twin.md` and `Subsystems/Testing.md`.
+
+- **Honesty:** every new sensor/camera/fusion is `DataProvenance.Simulated` with explicit
+  "not calibrated / status only / no image formation" notes; the thin-obstacle demo surfaces the real
+  detection limit rather than always detecting; the GPS-denied estimator is labelled DEMONSTRATION
+  (not production VIO/SLAM); benchmark figures come from the real planners over a fixed fixture.
+- Validator: **0 errors / 0 warnings / 0 advisories** across the tree. **Unity Editor compile + the
+  runtime checklist in `Subsystems/Testing.md` still required** — structural validation does not
+  compile or run anything.
+
 
 ### 2026-09-30 — D4: Theta* any-angle planner
 - **New `Navigation/ThetaStarPlanner.cs`** — a fourth `IPathPlanner` (`Name = "Theta* (Any-Angle)"`,
