@@ -43,15 +43,6 @@ namespace Astra.Mission
         /// </summary>
         public static bool IsSetupActive { get; private set; }
 
-        public enum SetupMissionType
-        {
-            PointToPoint = 0,
-            Reconnaissance = 1,
-            Surveillance = 2,
-            AreaSurvey = 3,
-            Search = 4
-        }
-
         public enum SetupNavMode
         {
             GpsAssisted = 0,
@@ -66,7 +57,7 @@ namespace Astra.Mission
         }
 
         // -------- operator-editable configuration (defaults are sensible + honest) --------
-        private SetupMissionType _missionType = SetupMissionType.Reconnaissance;
+        private MissionType _missionType = MissionType.Reconnaissance;
         private SetupNavMode _navMode = SetupNavMode.GpsAssisted;
         private SetupMapBackend _mapBackend = SetupMapBackend.Offline;
 
@@ -208,12 +199,12 @@ namespace Astra.Mission
         {
             GUILayout.Label("MISSION PROFILE", _h2);
             GUILayout.BeginHorizontal();
-            foreach (SetupMissionType t in (SetupMissionType[])System.Enum.GetValues(typeof(SetupMissionType)))
+            foreach (MissionType t in (MissionType[])System.Enum.GetValues(typeof(MissionType)))
             {
-                if (GUILayout.Button(Pretty(t.ToString()), _missionType == t ? _btnActive : _btn)) _missionType = t;
+                if (GUILayout.Button(MissionProfiles.Pretty(t), _missionType == t ? _btnActive : _btn)) _missionType = t;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Label(MissionTypeBlurb(_missionType), _note);
+            GUILayout.Label(MissionProfiles.Blurb(_missionType), _note);
         }
 
         private void DrawNavMode()
@@ -284,30 +275,6 @@ namespace Astra.Mission
             return t;
         }
 
-        private static string Pretty(string enumName)
-        {
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            for (int i = 0; i < enumName.Length; i++)
-            {
-                if (i > 0 && char.IsUpper(enumName[i])) sb.Append(' ');
-                sb.Append(enumName[i]);
-            }
-            return sb.ToString();
-        }
-
-        private static string MissionTypeBlurb(SetupMissionType t)
-        {
-            switch (t)
-            {
-                case SetupMissionType.PointToPoint: return "Direct route: launch → single cruise leg → objective. Simplest profile.";
-                case SetupMissionType.Reconnaissance: return "Approach the objective and orbit it with observation holds before returning.";
-                case SetupMissionType.Surveillance: return "Multiple observation passes over the objective corridor.";
-                case SetupMissionType.AreaSurvey: return "Lawnmower coverage pattern across the area around the objective.";
-                case SetupMissionType.Search: return "Expanding-box search waypoints centred on the objective.";
-                default: return string.Empty;
-            }
-        }
-
         // ------------------------------------------------------------- commit --------------
         private void TryStart()
         {
@@ -339,7 +306,8 @@ namespace Astra.Mission
             }
 
             // 2. Build a mission of the chosen profile and hand it to the EXISTING mission manager.
-            MissionDefinition mission = BuildMission(home, target, cruise, speed, margin);
+            MissionDefinition mission = MissionProfiles.Build(_missionType, home, target, cruise, speed, margin);
+            mission.SimulateGpsDenial = _navMode == SetupNavMode.GpsDenied;
             MissionManager mm = Find<MissionManager>();
             if (mm == null)
             {
@@ -389,93 +357,11 @@ namespace Astra.Mission
                 mm.Start(out _);
                 if (!FlightStateInfo.IsAirborne(fc.State)) fc.CommandTakeoff(cruise);
                 EventLog.Info(LogSource.System,
-                    $"Pre-flight setup committed: {Pretty(_missionType.ToString())} / {(_navMode == SetupNavMode.GpsDenied ? "GPS-DENIED" : "GPS-ASSISTED")}. Autonomy engaged.");
+                    $"Pre-flight setup committed: {MissionProfiles.Pretty(_missionType)} / {(_navMode == SetupNavMode.GpsDenied ? "GPS-DENIED" : "GPS-ASSISTED")}. Autonomy engaged.");
             }
 
             // 7. Hand the operational UI to the GCS.
             IsSetupActive = false;
-        }
-
-        private MissionDefinition BuildMission(GeoCoordinate home, GeoCoordinate target, float cruise, float speed, float margin)
-        {
-            MissionDefinition m = new MissionDefinition
-            {
-                MissionName = "ASTRA " + Pretty(_missionType.ToString()) + " (SIMULATED)",
-                Objective = MissionTypeBlurb(_missionType),
-                HomePosition = home,
-                DefaultSpeedMps = Mathf.Clamp(speed, 1f, 25f),
-                CruiseAltitudeM = Mathf.Clamp(cruise, 5f, 120f),
-                SafetyMarginM = Mathf.Clamp(margin, 1f, 30f),
-                SimulateGpsDenial = _navMode == SetupNavMode.GpsDenied
-            };
-
-            float ca = m.CruiseAltitudeM;
-            double tgtAlt = target.Altitude;
-
-            // Metres → degrees near the target latitude.
-            double mPerDegLat = 111320.0;
-            double mPerDegLon = 111320.0 * System.Math.Cos(target.Latitude * System.Math.PI / 180.0);
-            if (System.Math.Abs(mPerDegLon) < 1.0) mPerDegLon = 1.0;
-
-            GeoCoordinate Mid(double frac) => new GeoCoordinate(
-                home.Latitude + (target.Latitude - home.Latitude) * frac,
-                home.Longitude + (target.Longitude - home.Longitude) * frac, ca);
-            GeoCoordinate Off(double north, double east, double alt) => new GeoCoordinate(
-                target.Latitude + north / mPerDegLat,
-                target.Longitude + east / mPerDegLon, alt);
-
-            switch (_missionType)
-            {
-                case SetupMissionType.PointToPoint:
-                    m.Waypoints.Add(Waypoint.Create(Mid(0.5), WaypointKind.Transit, "Cruise Corridor"));
-                    m.Waypoints.Add(Waypoint.Create(new GeoCoordinate(target.Latitude, target.Longitude, tgtAlt), WaypointKind.Target, "Objective"));
-                    break;
-
-                case SetupMissionType.Reconnaissance:
-                    m.Waypoints.Add(Waypoint.Create(Mid(0.5), WaypointKind.Transit, "Cruise Corridor"));
-                    m.Waypoints.Add(Waypoint.Create(Off(-40, 0, ca), WaypointKind.Observation, "Recon Hold South"));
-                    m.Waypoints.Add(Waypoint.Create(Off(0, 40, ca), WaypointKind.Observation, "Recon Hold East"));
-                    m.Waypoints.Add(Waypoint.Create(new GeoCoordinate(target.Latitude, target.Longitude, tgtAlt), WaypointKind.Target, "Objective"));
-                    break;
-
-                case SetupMissionType.Surveillance:
-                    m.Waypoints.Add(Waypoint.Create(Mid(0.5), WaypointKind.Transit, "Cruise Corridor"));
-                    for (int i = 0; i < 3; i++)
-                    {
-                        double e = (i % 2 == 0) ? -50 : 50;
-                        m.Waypoints.Add(Waypoint.Create(Off((i - 1) * 30, e, ca), WaypointKind.Observation, "Surveillance Pass " + (i + 1)));
-                    }
-                    m.Waypoints.Add(Waypoint.Create(new GeoCoordinate(target.Latitude, target.Longitude, tgtAlt), WaypointKind.Target, "Objective"));
-                    break;
-
-                case SetupMissionType.AreaSurvey:
-                    m.Waypoints.Add(Waypoint.Create(Mid(0.5), WaypointKind.Transit, "Cruise Corridor"));
-                    int leg = 1;
-                    for (int row = -1; row <= 1; row++)
-                    {
-                        double n = row * 40;
-                        double e0 = (row % 2 == 0) ? -50 : 50;
-                        double e1 = -e0;
-                        m.Waypoints.Add(Waypoint.Create(Off(n, e0, ca), WaypointKind.Observation, "Survey Leg " + leg++));
-                        m.Waypoints.Add(Waypoint.Create(Off(n, e1, ca), WaypointKind.Observation, "Survey Leg " + leg++));
-                    }
-                    m.Waypoints.Add(Waypoint.Create(new GeoCoordinate(target.Latitude, target.Longitude, tgtAlt), WaypointKind.Target, "Objective"));
-                    break;
-
-                case SetupMissionType.Search:
-                    m.Waypoints.Add(Waypoint.Create(Mid(0.5), WaypointKind.Transit, "Cruise Corridor"));
-                    double r = 20;
-                    double[][] box = { new[] { r, r }, new[] { r, -r }, new[] { -r, -r }, new[] { -r, r } };
-                    for (int i = 0; i < box.Length; i++)
-                    {
-                        double scale = 1.0 + i * 0.6;
-                        m.Waypoints.Add(Waypoint.Create(Off(box[i][0] * scale, box[i][1] * scale, ca), WaypointKind.Observation, "Search Box " + (i + 1)));
-                    }
-                    m.Waypoints.Add(Waypoint.Create(new GeoCoordinate(target.Latitude, target.Longitude, tgtAlt), WaypointKind.Target, "Objective"));
-                    break;
-            }
-
-            return m;
         }
 
         private void Fail(string message)

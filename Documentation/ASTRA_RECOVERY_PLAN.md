@@ -83,9 +83,8 @@ Legend: ✅ DONE · 🟡 PARTIAL · ❌ MISSING. Evidence is the file that satis
 - **Geofencing / threat zones (Sec 40–43):** only a **radius** geofence in `FailsafeManager`. No
   polygon/no-go zones, no user-placed zones, no hidden "mission constraint" layer, and the planner
   has no zone cost layer.
-- **Mission types (Sec 4, 38–39):** only **one hardcoded** demo mission
-  ("Urban Reconnaissance & Delivery Alpha") in `MissionManager`. No `MissionType` enum, no
-  surveillance-pass / area-survey / point-to-point behaviours, no per-type parameters.
+- **Mission types (Sec 4, 38–39):** ✅ addressed by D2 — `MissionType` enum + `MissionProfiles`
+  builder + per-type Observation-dwell behaviour. (Verify in Unity.)
 - **Research/experiment mode (Sec 60–61):** `Diagnostics/BenchmarkRunner` exists but there is no
   interactive experiment panel to vary planner/noise/seed and compare runs live.
 - **Reproducible randomness (Sec 21, 61):** offline map uses a fixed seed field; no user-facing
@@ -118,6 +117,10 @@ scene/prefab surgery (which needs the Unity Editor).
   implemented as `Mission/MissionSetupManager.cs`, a self-installing pre-flight IMGUI screen that
   gates the GCS and hands a chosen-profile `MissionDefinition` to `MissionManager`. See the top
   change-log entry. Remaining: confirm the setup→GCS transition and bootstrap in the Editor.
+- **D2. Mission types (Sec 4, 38–39).** ✅ **DONE (structural; verify in Unity)** — `MissionType`
+  enum + per-type params in `Contracts/IMissionProvider.cs`, waypoint patterns in new
+  `Mission/MissionProfiles.cs`, and Observation-dwell behaviour in `AutonomyController`. Remaining:
+  fly each profile in the Editor to confirm the patterns and dwell.
 - **D2. Mission types (Sec 4, 38–39).** Add a `MissionType` enum + per-type parameters and behaviour
   (Recon orbit, Surveillance N passes, Area Survey lawnmower, Point-to-Point, Search) in
   `MissionManager`/`AutonomyController`. Feeds D1.
@@ -153,6 +156,31 @@ scene/prefab surgery (which needs the Unity Editor).
 ## E. Change log (newest first)
 
 > Append a dated entry after every change: what changed, which files, validator result, commit.
+
+### 2026-09-30 — D2: Mission types + per-type behaviours
+- **`Contracts/IMissionProvider.cs`** — added a `MissionType` enum (PointToPoint, Reconnaissance,
+  Surveillance, AreaSurvey, Search) and gave `MissionDefinition` a `Type` field plus per-type shaping
+  params (`ObservationDwellSeconds`, `SurveillancePassCount`, `AreaSurveyRows`, `SearchRings`,
+  `PatternRadiusM`). Additive; existing missions default to PointToPoint.
+- **New `Mission/MissionProfiles.cs`** — single source of truth that turns a `MissionType` + home +
+  objective + params into a concrete `MissionDefinition`. Geometry is generated in geographic
+  coords by offsetting metres from the objective (survives origin/map changes). Recon = 4 offset
+  observation holds around the objective; Surveillance = N alternating passes; AreaSurvey =
+  lawnmower legs; Search = expanding-ring boxes; every profile ends on a Target waypoint. Added
+  matching `.cs.meta`.
+- **`Mission/MissionSetupManager.cs`** — now uses the shared `MissionType` (dropped its private
+  duplicate enum) and delegates waypoint generation to `MissionProfiles.Build`, removing ~80 lines
+  of duplicated geometry. UI, gating and commit flow unchanged.
+- **`Mission/AutonomyController.cs`** — added Observation/Hold dwell handling to the ACT stage: on
+  reaching an observation waypoint the executive hovers and counts down `DwellSeconds` before
+  advancing and re-planning. This is what makes the profiles behave differently in the air (the
+  patterns pause to observe; Point-to-Point flies straight through). Transit and Target handling
+  untouched (Sec 53).
+- **Honesty:** all missions labelled SIMULATED; per-type behaviour is the waypoint pattern + dwell,
+  not distinct sensor/mission-planning logic beyond that.
+- Validator: **0 errors / 60 files**. Commit: pending in this entry. **Editor build + flying each
+  profile must be verified in Unity** — structural validation does not exercise the dwell loop or
+  the pattern geometry.
 
 ### 2026-09-30 — D1: Startup Mission Setup flow (pre-flight configuration screen)
 - **New `Mission/MissionSetupManager.cs`** — a pre-flight IMGUI configuration screen shown BEFORE the

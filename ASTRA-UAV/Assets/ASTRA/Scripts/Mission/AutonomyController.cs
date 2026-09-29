@@ -40,6 +40,13 @@ namespace Astra.Mission
         private int _currentPathIndex = 0;
         private bool _isAvoiding = false;
 
+        // Observation/Hold dwell state: while loitering at an observation waypoint we hover in place
+        // and count down its dwell time before advancing. This is what makes the mission profiles
+        // (Recon/Surveillance/Survey/Search) behave differently in the air from a straight
+        // Point-to-Point run, which has no observation waypoints to dwell at.
+        private bool _dwelling = false;
+        private float _dwellElapsed = 0f;
+
         public DecisionRecord LastDecision => _lastDecision;
         public DecisionCycleTiming LastTiming => _lastTiming;
         public DecisionStage CurrentStage => _currentStage;
@@ -263,6 +270,39 @@ namespace Astra.Mission
                 flightController.CommandHover();
                 chosenAction = DecisionAction.HoldPosition;
                 decisionReason = "Target arrived. Holding steady position.";
+            }
+            else if (targetDist < 5.0f && missionManager != null &&
+                     missionManager.ActiveWaypointIndex >= 0 &&
+                     (missionManager.ActiveWaypoint.Kind == WaypointKind.Observation ||
+                      missionManager.ActiveWaypoint.Kind == WaypointKind.Hold))
+            {
+                // Observation / Hold waypoint reached. Loiter in place for the waypoint's dwell time
+                // (capturing an observation), then advance and re-plan to the next point. This is the
+                // per-mission-type behaviour: Recon/Surveillance/Survey/Search pause at their
+                // observation points, Point-to-Point has none and flies straight through to target.
+                Waypoint activeWp = missionManager.ActiveWaypoint;
+                flightController.CommandHover();
+
+                if (!_dwelling)
+                {
+                    _dwelling = true;
+                    _dwellElapsed = 0f;
+                }
+                _dwellElapsed += 1f / Mathf.Max(1f, autonomyRateHz);
+
+                chosenAction = DecisionAction.HoldPosition;
+                decisionReason = $"Observing at '{activeWp.Label}' ({_dwellElapsed:F1}/{activeWp.DwellSeconds:F1}s).";
+
+                if (_dwellElapsed >= activeWp.DwellSeconds)
+                {
+                    _dwelling = false;
+                    _dwellElapsed = 0f;
+                    missionManager.AdvanceWaypoint();
+                    _currentPath = null;
+                    _currentPathIndex = 0;
+                    chosenAction = DecisionAction.ContinueRoute;
+                    decisionReason = $"Observation '{activeWp.Label}' complete. Proceeding to next waypoint.";
+                }
             }
             else if (targetDist < 5.0f && missionManager != null &&
                      missionManager.ActiveWaypointIndex >= 0 &&

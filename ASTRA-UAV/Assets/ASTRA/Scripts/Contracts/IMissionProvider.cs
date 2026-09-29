@@ -74,12 +74,38 @@ namespace Astra.Contracts
     }
 
     /// <summary>
+    /// The class of mission being flown. Governs the waypoint pattern generated for it and the
+    /// behaviour the autonomy executive applies (e.g. whether it dwells at observation points).
+    /// Distinct from <see cref="WaypointKind"/>, which classifies an individual waypoint.
+    /// </summary>
+    public enum MissionType
+    {
+        /// <summary>Launch → single cruise leg → objective. Simplest profile.</summary>
+        PointToPoint = 0,
+
+        /// <summary>Approach the objective and hold at offset observation points around it.</summary>
+        Reconnaissance = 1,
+
+        /// <summary>Repeated observation passes over the objective corridor.</summary>
+        Surveillance = 2,
+
+        /// <summary>Lawnmower coverage pattern across the area around the objective.</summary>
+        AreaSurvey = 3,
+
+        /// <summary>Expanding-box search waypoints centred on the objective.</summary>
+        Search = 4
+    }
+
+    /// <summary>
     /// A complete mission: an ordered waypoint list plus the parameters that govern how it is flown.
     /// </summary>
     [Serializable]
     public class MissionDefinition
     {
         public string MissionName = "Untitled Mission";
+
+        /// <summary>The class of mission. Set by the mission builder; drives per-type behaviour.</summary>
+        public MissionType Type = MissionType.PointToPoint;
 
         /// <summary>Free-text objective, shown on the mission briefing panel.</summary>
         public string Objective = string.Empty;
@@ -123,6 +149,23 @@ namespace Astra.Contracts
 
         /// <summary>Seconds the outage lasts. Zero means it persists for the rest of the mission.</summary>
         public float GpsDenialDurationS = 0f;
+
+        // ----- per-type shaping parameters (used by the mission builder; see MissionProfiles) -----
+
+        /// <summary>Seconds to loiter at each Observation waypoint (Recon/Surveillance/Survey/Search).</summary>
+        public float ObservationDwellSeconds = 2.5f;
+
+        /// <summary>Number of passes for a Surveillance mission.</summary>
+        public int SurveillancePassCount = 3;
+
+        /// <summary>Number of parallel legs for an Area Survey (lawnmower) mission.</summary>
+        public int AreaSurveyRows = 3;
+
+        /// <summary>Number of expanding rings for a Search mission.</summary>
+        public int SearchRings = 3;
+
+        /// <summary>Offset radius, metres, used to place observation points around the objective.</summary>
+        public float PatternRadiusM = 45f;
 
         public int WaypointCount
         {
