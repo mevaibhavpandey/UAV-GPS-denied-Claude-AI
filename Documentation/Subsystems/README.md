@@ -3,6 +3,8 @@
 Named subsystem docs required by the spec. All describe the SIMULATED research platform; each notes
 what is verified structurally vs what still needs the Unity Editor.
 
+- [Flight_Control.md](Flight_Control.md) — single force-based controller, PID cascade, derived hover throttle
+- [Georeferencing.md](Georeferencing.md) — geodetic origin, ENU tangent plane, floating-origin rebasing
 - [Mission_System.md](Mission_System.md) — pre-flight setup, mission types, 7-stage autonomy loop
 - [Map_System.md](Map_System.md) — offline stylized vs Cesium photoreal backends, geo anchoring
 - [LiDAR_System.md](LiDAR_System.md) — configurable raycast LiDAR model, noise/dropout, stats
@@ -13,3 +15,4 @@ what is verified structurally vs what still needs the Unity Editor.
 - [Threat_Zone_Simulation.md](Threat_Zone_Simulation.md) — no-go/soft-avoid/advisory zones + cost layer
 - [Digital_Twin.md](Digital_Twin.md) — airframe composition; D11 hierarchy verification is Editor-only
 - [Testing.md](Testing.md) — what is structurally verified vs the Editor/runtime checklist
+- [Performance.md](Performance.md) — loop-cost design decisions and how to measure them (Editor only)

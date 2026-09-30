@@ -149,6 +149,14 @@ namespace Astra.Core
         /// <summary>Presentation mode toggled. Argument: true if active.</summary>
         public static event Action<bool> PresentationModeChanged;
 
+        /// <summary>
+        /// The world was rebased by the floating-origin system: every object was translated by the
+        /// argument (metres, Unity space) to keep the aircraft near the origin and preserve float
+        /// precision. Subsystems that cache Unity-space positions must add this delta to them so they
+        /// still refer to the same physical point. Geographic coordinates are unaffected.
+        /// </summary>
+        public static event Action<Vector3> WorldRebased;
+
         // ====================================================================================
         // RAISE METHODS
         // ====================================================================================
@@ -170,6 +178,11 @@ namespace Astra.Core
         public static void RaiseControlSourceChanged(ControlSource from, ControlSource to)
         {
             Raise(ControlSourceChanged, from, to, "ControlSourceChanged");
+        }
+
+        public static void RaiseWorldRebased(Vector3 delta)
+        {
+            Raise(WorldRebased, delta, "WorldRebased");
         }
 
         public static void RaiseArmingRefused(string reason)

@@ -159,6 +159,22 @@ namespace Astra.Core.Geo
             Debug.Log("[GeoReference] Origin set to " + newOrigin + " (" + siteName + ")");
         }
 
+        /// <summary>
+        /// Moves the origin as part of a floating-origin rebase. This is the OPPOSITE intent to
+        /// SetOrigin: SetOrigin reassigns what the world means (everything now refers to new real
+        /// coordinates), whereas a rebase moves both the origin AND every object by equal-and-
+        /// opposite amounts so that every object keeps referring to the SAME real coordinates.
+        /// FloatingOriginManager owns the pairing; it must call this together with the world
+        /// translation. Deliberately quiet - a rebase is a routine internal operation, not a
+        /// site reconfiguration, so it does not log at info level or rename the site.
+        /// </summary>
+        public void RebaseOrigin(GeoCoordinate newOrigin)
+        {
+            originLatitude = newOrigin.Latitude;
+            originLongitude = newOrigin.Longitude;
+            originAltitude = newOrigin.Altitude;
+        }
+
         // ------------------------------------------------------------------------------------
         // Editor validation
         // ------------------------------------------------------------------------------------

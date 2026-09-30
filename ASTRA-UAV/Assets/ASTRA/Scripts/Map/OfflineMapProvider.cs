@@ -31,7 +31,7 @@ namespace Astra.Map
     /// dominated by greenery. A distinct BMSIT&M campus cluster is placed near the launch pad.
     /// </summary>
     [DisallowMultipleComponent]
-    public class OfflineMapProvider : MonoBehaviour, IMapDataProvider
+    public class OfflineMapProvider : MonoBehaviour, IMapDataProvider, IStaticObstacleSource
     {
         [Header("Site Layout")]
         [SerializeField] private int cityGridSize = 9;
@@ -65,6 +65,26 @@ namespace Astra.Map
 
         public event Action<IMapDataProvider> StatusChanged;
 
+        // ---- IStaticObstacleSource: the procedural city knows its own buildings exactly ----
+        private int _staticObstacleVersion;
+        public bool HasStaticObstacles => _isReady && _buildingBounds.Count > 0;
+        public int StaticObstacleVersion => _staticObstacleVersion;
+
+        /// <summary>
+        /// Hands the planner every generated building as an axis-aligned box so nominal routes clear
+        /// known structures globally. These boxes are exact for this stylized environment (we made
+        /// them); they are still SIMULATED geometry, not surveyed Bangalore footprints.
+        /// </summary>
+        public void GetStaticObstacles(List<StaticObstacleBox> into)
+        {
+            into.Clear();
+            for (int i = 0; i < _buildingBounds.Count; i++)
+            {
+                Bounds b = _buildingBounds[i];
+                into.Add(new StaticObstacleBox(b.center, b.extents, ObstacleClass.Building));
+            }
+        }
+
         private void Start()
         {
             Initialise(GeoReference.Instance);
@@ -81,6 +101,7 @@ namespace Astra.Map
             _loadProgress = 1.0f;
             _status = SubsystemStatus.Ok;
             _statusDetail = "Offline environment ready (stylized, zero-dependency).";
+            _staticObstacleVersion++;
             StatusChanged?.Invoke(this);
 
             EventLog.Info(LogSource.System,

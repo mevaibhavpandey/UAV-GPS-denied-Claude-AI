@@ -238,11 +238,29 @@ namespace Astra.Flight
         private void OnEnable()
         {
             AstraServices.Register<IFlightController>(this);
+            AstraEvents.WorldRebased += OnWorldRebased;
         }
 
         private void OnDisable()
         {
             AstraServices.UnregisterIfCurrent<IFlightController>(this);
+            AstraEvents.WorldRebased -= OnWorldRebased;
+        }
+
+        /// <summary>
+        /// Floating-origin support. When the world is rebased, every object (including this aircraft)
+        /// is translated by <paramref name="delta"/>. The cached Unity-space setpoints must move by
+        /// the same amount so they still denote the same physical points. Because the setpoint and
+        /// the measured position shift together, every control error is unchanged - the rebase is
+        /// invisible to the control law, which is the whole point of doing it this way rather than
+        /// letting the aircraft drift to large coordinates. Nothing here alters a gain or a sign.
+        /// </summary>
+        private void OnWorldRebased(Vector3 delta)
+        {
+            _launchPosition += delta;
+            _launchAltitude += delta.y;
+            _targetPosition += delta;
+            _targetAltitude += delta.y;
         }
 
         private void Start()

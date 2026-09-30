@@ -28,3 +28,19 @@ between geographic coordinates and Unity world positions (`ToUnityAtHeight`, etc
 Real photorealistic tiles require Unity-Editor-side setup (package + ion token). This cannot be done
 in the headless sandbox; the offline environment is the default and needs no setup. See
 `../MAP_SETUP.md`.
+
+## Static obstacles feed the planner (global avoidance)
+
+The procedural `OfflineMapProvider` knows every building box it generated, so it implements the
+optional `IStaticObstacleSource` capability. `AutonomyController` stamps those boxes into its
+`OccupancyGrid` once per change (inflated by `staticObstacleInflationM`, default one voxel), so
+nominal routes clear known structures **globally** instead of only reacting to them at close range.
+This is additive: perception still handles everything dynamic or unmodelled, and it can be disabled
+with the `ingestStaticObstacles` toggle.
+
+`CesiumMapProvider` deliberately does NOT implement `IStaticObstacleSource` — Google's fused
+photogrammetric mesh has no per-building semantics to enumerate — so under Cesium the planner relies
+on height-sampling and reactive perception, and this ingestion is a no-op. Keeping the capability
+optional makes that honest distinction explicit rather than pretending Cesium exposes footprints it
+does not. Verify building-avoidance behaviour in the Unity Editor; structural validation does not run
+the planner.
