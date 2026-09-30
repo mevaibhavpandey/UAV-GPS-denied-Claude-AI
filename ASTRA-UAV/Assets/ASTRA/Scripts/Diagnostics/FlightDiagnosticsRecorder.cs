@@ -5,6 +5,7 @@ using System.Text;
 using UnityEngine;
 using Astra.Contracts;
 using Astra.Core;
+using Astra.Core.Config;
 using Astra.Core.Logging;
 using Astra.Flight;
 using Astra.Mission;
